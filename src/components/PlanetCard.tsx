@@ -1,5 +1,6 @@
 import { NexusTerminal } from "./NexusTerminal";
 import { ProtectionAudit } from "./ProtectionAudit";
+import { MarketsPanel } from "./MarketsPanel";
 
 interface PlanetCardProps {
   name: string;
@@ -12,47 +13,7 @@ export const PlanetCard = ({ name, icon, isOpen, onClose }: PlanetCardProps) => 
   const getContent = () => {
     switch (name) {
       case "Markets":
-        return (
-          <>
-            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-7 mb-5 hover:bg-primary/15 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(212,165,116,0.2)] transition-all">
-              <div className="text-xs text-white/60 uppercase tracking-wider mb-3 font-bold">
-                Market Status
-              </div>
-              <div className="text-4xl font-black text-green-500 mb-2 [text-shadow:0_0_10px_rgba(16,185,129,0.3)]">
-                OPEN
-              </div>
-              <div className="text-sm text-green-500 font-bold">London Session Active</div>
-            </div>
-            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-7 mb-5 hover:bg-primary/15 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(212,165,116,0.2)] transition-all">
-              <div className="text-xs text-white/60 uppercase tracking-wider mb-3 font-bold">
-                Volatility Index
-              </div>
-              <div className="text-4xl font-black text-green-500 mb-2 [text-shadow:0_0_10px_rgba(16,185,129,0.3)]">
-                Medium
-              </div>
-              <div className="text-sm text-green-500 font-bold">+12% from yesterday</div>
-            </div>
-            <div className="space-y-3 mb-5">
-              <div className="bg-white/5 border border-primary/20 rounded-xl p-5 flex justify-between items-center hover:bg-primary/10 hover:border-primary/40 hover:translate-x-1 transition-all">
-                <div>
-                  <div className="text-primary font-bold mb-1">EUR/USD</div>
-                  <div className="text-xs text-white/50">1.0847</div>
-                </div>
-                <div className="text-green-500 font-bold">+0.34%</div>
-              </div>
-              <div className="bg-white/5 border border-primary/20 rounded-xl p-5 flex justify-between items-center hover:bg-primary/10 hover:border-primary/40 hover:translate-x-1 transition-all">
-                <div>
-                  <div className="text-primary font-bold mb-1">GBP/USD</div>
-                  <div className="text-xs text-white/50">1.2634</div>
-                </div>
-                <div className="text-red-500 font-bold">-0.12%</div>
-              </div>
-            </div>
-            <button className="w-full bg-primary/20 border border-primary/50 text-primary px-8 py-4 rounded-xl font-black uppercase tracking-wider hover:bg-primary/40 hover:border-primary/80 hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(212,165,116,0.3)] transition-all">
-              View Full Charts →
-            </button>
-          </>
-        );
+        return <MarketsPanel />;
       case "Intelligence":
         return (
           <div className="h-[500px] w-full">
