@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, useTexture } from "@react-three/drei";
+import { OrbitControls, useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
 
 // Import photorealistic planet textures
@@ -29,6 +29,7 @@ interface PlanetPropsExtended extends PlanetProps {
   glowColor: string;
 }
 const Planet = ({
+  name,
   distance,
   angle,
   texture,
@@ -38,38 +39,56 @@ const Planet = ({
   glowColor
 }: PlanetPropsExtended) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const planetTexture = useTexture(texture);
+
   useFrame(state => {
-    if (meshRef.current) {
+    if (meshRef.current && groupRef.current) {
       meshRef.current.rotation.y += 0.003;
       const t = state.clock.getElapsedTime() * 0.0005;
       const currentAngle = angle + t * 30;
       const angleRad = currentAngle * Math.PI / 180;
       const x = Math.cos(angleRad) * distance;
       const z = Math.sin(angleRad) * distance;
-      meshRef.current.position.x = x;
-      meshRef.current.position.z = z;
+      groupRef.current.position.x = x;
+      groupRef.current.position.z = z;
     }
   });
-  return <group>
 
-      {/* Photorealistic planet mesh */}
-      <mesh ref={meshRef} position={[Math.cos(angle * Math.PI / 180) * distance, 0, Math.sin(angle * Math.PI / 180) * distance]} onClick={onClick} onPointerOver={() => {
-      setHovered(true);
-      onHover(true);
-      document.body.style.cursor = "pointer";
-    }} onPointerOut={() => {
-      setHovered(false);
-      onHover(false);
-      document.body.style.cursor = "default";
-    }}>
-        <sphereGeometry args={[size, 128, 128]} />
-        <meshStandardMaterial map={planetTexture} metalness={0.05} roughness={0.9} />
+  const initX = Math.cos(angle * Math.PI / 180) * distance;
+  const initZ = Math.sin(angle * Math.PI / 180) * distance;
+
+  return <group ref={groupRef} position={[initX, 0, initZ]}>
+      <mesh ref={meshRef} onClick={onClick}
+        onPointerOver={() => { setHovered(true); onHover(true); document.body.style.cursor = "pointer"; }}
+        onPointerOut={() => { setHovered(false); onHover(false); document.body.style.cursor = "default"; }}>
+        <sphereGeometry args={[size, 64, 64]} />
+        <meshStandardMaterial map={planetTexture} metalness={0.05} roughness={0.9}
+          emissive={hovered ? new THREE.Color(glowColor) : new THREE.Color(0x000000)}
+          emissiveIntensity={hovered ? 0.3 : 0} />
       </mesh>
 
-      {/* Subtle point light from planet */}
-      <pointLight position={[Math.cos(angle * Math.PI / 180) * distance, 0, Math.sin(angle * Math.PI / 180) * distance]} color={glowColor} intensity={hovered ? 1 : 0.5} distance={12} />
+      {/* Planet name label */}
+      <Html center position={[0, -(size + 1.2), 0]} distanceFactor={18} zIndexRange={[0, 0]}>
+        <div style={{
+          color: hovered ? '#ffffff' : 'rgba(255,255,255,0.65)',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          fontWeight: 'bold',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          textShadow: `0 0 8px ${glowColor}, 0 1px 3px rgba(0,0,0,0.8)`,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          transition: 'all 0.2s',
+        }}>
+          {name}
+        </div>
+      </Html>
+
+      <pointLight color={glowColor} intensity={hovered ? 1.5 : 0.4} distance={14} />
     </group>;
 };
 const Starfield = () => {
@@ -182,85 +201,40 @@ const NebulaBackground = () => {
       <pointsMaterial size={2.5} vertexColors transparent opacity={0.6} sizeAttenuation blending={THREE.AdditiveBlending} />
     </points>;
 };
+const OrbitRing = ({ radius, opacity = 0.15 }: { radius: number; opacity?: number }) => {
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= 128; i++) {
+    const angle = (i / 128) * Math.PI * 2;
+    points.push(new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius));
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  return (
+    <line geometry={geometry}>
+      <lineBasicMaterial color="#d4a574" transparent opacity={opacity} />
+    </line>
+  );
+};
+
 interface ThreeSceneProps {
   onPlanetClick: (name: string) => void;
 }
 export const ThreeScene = ({
   onPlanetClick
 }: ThreeSceneProps) => {
-  const planetsData = [{
-    name: "Markets",
-    texture: marketsTexture,
-    icon: "📊",
-    distance: 22,
-    angle: 0,
-    size: 2.8,
-    glowColor: "#ff3333"
-  }, {
-    name: "Intelligence",
-    texture: intelligenceTexture,
-    icon: "🧠",
-    distance: 22,
-    angle: 40,
-    size: 3.2,
-    glowColor: "#aa00ff"
-  }, {
-    name: "Alerts",
-    texture: alertsTexture,
-    icon: "🔔",
-    distance: 22,
-    angle: 80,
-    size: 3.5,
-    glowColor: "#ff8800"
-  }, {
-    name: "Settings",
-    texture: settingsTexture,
-    icon: "⚙️",
-    distance: 22,
-    angle: 120,
-    size: 2.5,
-    glowColor: "#00ff88"
-  }, {
-    name: "Journal",
-    texture: journalTexture,
-    icon: "📝",
-    distance: 22,
-    angle: 160,
-    size: 3.8,
-    glowColor: "#aaaaaa"
-  }, {
-    name: "Execution",
-    texture: executionTexture,
-    icon: "⚡",
-    distance: 22,
-    angle: 200,
-    size: 3.2,
-    glowColor: "#ffdd00"
-  }, {
-    name: "Analytics",
-    texture: analyticsTexture,
-    icon: "📈",
-    distance: 22,
-    angle: 240,
-    size: 3.6,
-    glowColor: "#0099ff"
-  }, {
-    name: "Trades",
-    texture: tradesTexture,
-    icon: "💹",
-    distance: 22,
-    angle: 280,
-    size: 4.2,
-    glowColor: "#00ddff"
-  }, {
-    name: "History",
-    texture: historyTexture,
-    icon: "🕐",
-    distance: 22,
-    angle: 320,
-    size: 4.5,
-    glowColor: "#ff9944"
-  }];
+  // Inner ring — core trading planets (distance 18)
+  // Outer ring — support planets (distance 30)
+  const planetsData = [
+    { name: "Markets",     texture: marketsTexture,     icon: "📊", distance: 18, angle: 0,   size: 2.6, glowColor: "#ff4444" },
+    { name: "Intelligence",texture: intelligenceTexture, icon: "🧠", distance: 18, angle: 90,  size: 2.8, glowColor: "#aa44ff" },
+    { name: "Execution",   texture: executionTexture,   icon: "⚡", distance: 18, angle: 180, size: 2.4, glowColor: "#ffdd00" },
+    { name: "Analytics",   texture: analyticsTexture,   icon: "📈", distance: 18, angle: 270, size: 2.5, glowColor: "#0099ff" },
+    { name: "Alerts",      texture: alertsTexture,      icon: "🔔", distance: 30, angle: 0,   size: 2.2, glowColor: "#ff8800" },
+    { name: "Journal",     texture: journalTexture,     icon: "📝", distance: 30, angle: 60,  size: 2.3, glowColor: "#aaaaaa" },
+    { name: "Reports",     texture: historyTexture,     icon: "📋", distance: 30, angle: 120, size: 2.0, glowColor: "#44ffaa" },
+    { name: "Trades",      texture: tradesTexture,      icon: "💹", distance: 30, angle: 180, size: 2.5, glowColor: "#00ddff" },
+    { name: "History",     texture: historyTexture,     icon: "🕐", distance: 30, angle: 240, size: 2.1, glowColor: "#ff9944" },
+    { name: "Settings",    texture: settingsTexture,    icon: "⚙️", distance: 30, angle: 300, size: 1.9, glowColor: "#00ff88" },
+  ];
   return <div className="fixed inset-0 z-[1]">
       <Canvas camera={{
       position: [0, 15, 55],
@@ -285,7 +259,11 @@ export const ThreeScene = ({
         {/* Central Nexus Earth */}
         <NexusEarth />
 
-        {/* Orbiting system planets with light trails */}
+        {/* Orbit rings */}
+        <OrbitRing radius={18} opacity={0.18} />
+        <OrbitRing radius={30} opacity={0.10} />
+
+        {/* Orbiting planets */}
         {planetsData.map(planet => <Planet key={planet.name} name={planet.name} icon={planet.icon} distance={planet.distance} angle={planet.angle} texture={planet.texture} size={planet.size} glowColor={planet.glowColor} color="#ffffff" onClick={() => onPlanetClick(planet.name)} onHover={() => {}} />)}
 
         <OrbitControls enableDamping dampingFactor={0.05} enableZoom enablePan={false} minDistance={30} maxDistance={120} autoRotate autoRotateSpeed={0.15} />

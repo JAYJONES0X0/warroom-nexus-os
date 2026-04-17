@@ -405,6 +405,7 @@ export const NexusTerminal = () => {
   const [input, setInput] = useState('');
   const [cmdHistory, setCmdHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState(-1);
+  const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { prices, fetchedAt, loading: pricesLoading, error: pricesError } = usePrices();
@@ -442,16 +443,67 @@ export const NexusTerminal = () => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [logs]);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const callNexusAI = async (cmd: string) => {
+    setIsStreaming(true);
     const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLogs(prev => [...prev, { message: `> ${input}`, type: 'input', timestamp: ts }]);
-    setCmdHistory(prev => [input, ...prev.slice(0, 49)]);
+    setLogs(prev => [...prev, { message: '⚡ NEXUS AI — analyzing...', type: 'analysis', timestamp: ts }]);
+    let accumulated = '';
+    try {
+      const resp = await fetch('/api/nexus-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd, prices, sessionName: getSession().name }),
+      });
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') break outer;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.token) {
+              accumulated += parsed.token;
+              setLogs(prev => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], message: accumulated };
+                return next;
+              });
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
+    } catch (err) {
+      setLogs(prev => {
+        const next = [...prev];
+        next[next.length - 1] = { ...next[next.length - 1], message: `⚠️ AI error: ${String(err)}`, type: 'error' };
+        return next;
+      });
+    }
+    setIsStreaming(false);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isStreaming) return;
+    const cmd = input.trim();
+    const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs(prev => [...prev, { message: `> ${cmd}`, type: 'input', timestamp: ts }]);
+    setCmdHistory(prev => [cmd, ...prev.slice(0, 49)]);
     setHistIdx(-1);
-    const { lines, type } = processCommand(input, prices);
-    setTimeout(() => push(lines, type), 60);
     setInput('');
+    const { lines, type } = processCommand(cmd, prices);
+    if (type === 'error') {
+      await callNexusAI(cmd);
+    } else {
+      setTimeout(() => push(lines, type), 60);
+    }
   };
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -517,8 +569,9 @@ export const NexusTerminal = () => {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={onKey}
-            className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/20 text-sm"
-            placeholder="/scan all"
+            className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/20 text-sm disabled:opacity-40"
+            placeholder={isStreaming ? 'AI responding...' : '/scan all'}
+            disabled={isStreaming}
             autoFocus
             autoComplete="off"
             spellCheck={false}
