@@ -1,9 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { usePrices, PriceData } from '@/hooks/usePrices';
 
 interface LogEntry {
   type: 'info' | 'success' | 'warning' | 'error' | 'input' | 'system' | 'analysis';
   message: string;
   timestamp: string;
+}
+
+type Prices = Record<string, PriceData>;
+
+function fmt(p: PriceData | undefined, decimals = 4): string {
+  if (!p) return 'N/A';
+  const sign = p.changePct >= 0 ? '+' : '';
+  return `${p.price.toFixed(decimals)} (${sign}${p.changePct.toFixed(2)}%)`;
+}
+
+function dir(p: PriceData | undefined): string {
+  if (!p) return '→';
+  return p.changePct > 0.1 ? '↑' : p.changePct < -0.1 ? '↓' : '→';
 }
 
 const ASSETS = ['EURUSD', 'XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'NZDUSD', 'NAS100', 'SPX', 'BTCUSD', 'DXY'];
@@ -54,6 +68,7 @@ const HELP_LINES = [
   '  /psychology            Psychological state scan',
   '  /conflict check        Scan for conflicting signals',
   '  /now                   Best setup RIGHT NOW',
+  '  /prices                Live prices for all 11 assets',
   '  /god mode              All frameworks engaged',
   '  /zen                   Patience protocol',
   '',
@@ -64,7 +79,7 @@ const HELP_LINES = [
   '═══════════════════════════════════════════════════',
 ];
 
-function scanAll(): string[] {
+function scanAll(prices: Prices): string[] {
   const s = getSession();
   return [
     '════════════════════════════════════════════════════',
@@ -94,11 +109,12 @@ function scanAll(): string[] {
   ];
 }
 
-function scanAsset(asset: string): string[] {
+function scanAsset(asset: string, prices: Prices = {}): string[] {
   const upper = asset.toUpperCase();
   if (!ASSETS.includes(upper)) return [`❌ Unknown asset: ${upper}`, `Available: ${ASSETS.join(', ')}`];
   const s = getSession();
   const pb = PLAYBOOK[upper];
+  const p = prices[upper];
   const sessionInOptimal = pb.sessions.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]);
   const lock3 = sessionInOptimal ? '✓' : '✗';
   const locks = sessionInOptimal ? 3 : 2;
@@ -109,6 +125,7 @@ function scanAsset(asset: string): string[] {
     '════════════════════════════════════════════════════',
     '',
     `🎯 VERDICT: ${verdict} | ${locks}/4 EXA Locks | Playbook Win Rate: ${pb.winRate}%`,
+    p ? `   Live: ${fmt(p, upper === 'NAS100' || upper === 'SPX' || upper === 'BTCUSD' ? 0 : upper === 'XAUUSD' ? 2 : 4)} ${dir(p)}` : '   Live: fetching...',
     '',
     `📊 BEHAVIOR PROFILE:`,
     `   ${pb.behavior}`,
@@ -147,25 +164,36 @@ function scanAsset(asset: string): string[] {
   ];
 }
 
-function bias(): string[] {
+function bias(prices: Prices): string[] {
+  const spx = prices['SPX'];
+  const nas = prices['NAS100'];
+  const dxy = prices['DXY'];
+  const xau = prices['XAUUSD'];
+  const aud = prices['AUDUSD'];
+  const jpy = prices['USDJPY'];
+
+  const riskOn = (nas?.changePct ?? 0) > 0 && (dxy?.changePct ?? 0) < 0;
+  const riskOff = (nas?.changePct ?? 0) < -0.3 && (dxy?.changePct ?? 0) > 0.2;
+  const biasLabel = riskOn ? '🟢 RISK-ON' : riskOff ? '🔴 RISK-OFF' : '🟡 NEUTRAL/MIXED';
+
   return [
     '════════════════════════════════════════════════════',
-    '📊 MARKET BIAS: 🟢 RISK-ON',
+    `📊 MARKET BIAS: ${biasLabel}`,
     '════════════════════════════════════════════════════',
     '',
-    '   SPX:    ↑ Bullish daily structure — equity demand active',
-    '   NAS100: ↑ Outperforming — growth bid',
-    '   DXY:    ↓ Bearish — dollar under selling pressure',
-    '   XAUUSD: ↑ Bullish — safe-haven with risk-on twist',
-    '   AUDUSD: ↑ Commodity currency bid — risk proxy ✓',
-    '   NZDUSD: → Neutral — lagging, potential catch-up',
-    '   JPY:    ↓ Weakening — classic risk-on signature',
+    `   SPX:    ${dir(spx)} ${fmt(spx, 0)}`,
+    `   NAS100: ${dir(nas)} ${fmt(nas, 0)}`,
+    `   DXY:    ${dir(dxy)} ${fmt(dxy, 3)}`,
+    `   XAUUSD: ${dir(xau)} ${fmt(xau, 2)}`,
+    `   AUDUSD: ${dir(aud)} ${fmt(aud)}`,
+    `   USDJPY: ${dir(jpy)} ${fmt(jpy, 3)} (↑ = USD strong / JPY weak)`,
     '',
     '💡 TRADE WITH THE FLOW:',
-    '   ✓ Long: XAUUSD, NAS100, AUDUSD, GBPUSD',
-    '   ✗ Avoid: Safe-haven longs (JPY, CHF) against flow',
+    riskOn ? '   ✓ Long: XAUUSD, NAS100, AUDUSD, GBPUSD' :
+    riskOff ? '   ✓ Long: DXY, USDJPY. Short: equities, commodities.' :
+    '   Mixed signals — trade only highest confluence setups.',
     '',
-    '⚠️  FLIP SIGNAL: DXY reclaims [key level] → bias reverses',
+    '⚠️  FLIP SIGNAL: DXY direction reversal → full bias reassessment',
     '════════════════════════════════════════════════════',
   ];
 }
@@ -198,14 +226,15 @@ function sessionInfo(): string[] {
   ].filter(Boolean);
 }
 
-function sniper(arg: string): string[] {
+function sniper(arg: string, prices: Prices = {}): string[] {
+  const xau = prices['XAUUSD'];
   return [
     '════════════════════════════════════════════════════',
     '🎯 SNIPER SCAN — 85+ CONFLUENCE ONLY',
     '════════════════════════════════════════════════════',
     '',
     '⚡ XAUUSD — 89/100 — ✅ CONFIRMED SNIPER SETUP',
-    '   4/4 EXA Locks | Win Rate: 72% | Risk: 1.5%',
+    `   4/4 EXA Locks | Win Rate: 72% | Live: ${fmt(xau, 2)} ${dir(xau)}`,
     '   All criteria met. Institutional fingerprint confirmed.',
     '   Entry: HTF OB + M15 CHoCH. Stop: below swept lows.',
     '',
@@ -216,7 +245,9 @@ function sniper(arg: string): string[] {
   ];
 }
 
-function godMode(): string[] {
+function godMode(prices: Prices = {}): string[] {
+  const dxy = prices['DXY'];
+  const xau = prices['XAUUSD'];
   const s = getSession();
   return [
     '════════════════════════════════════════════════════',
@@ -238,11 +269,11 @@ function godMode(): string[] {
     '   Structure ......... HTF bullish, LTF consolidating',
     '   Liquidity ......... Equal lows below — hunt incoming',
     '   Smart Money ....... Accumulation phase detected',
-    '   Correlation ....... DXY bearish = commodity/risk bid',
+    `   Correlation ....... DXY ${dxy ? fmt(dxy, 3) + ' ' + dir(dxy) : 'loading'} = ${dxy && dxy.changePct < 0 ? 'bearish = commodity/risk bid ✓' : 'check direction'}`,
     `   Session Timing .... ${s.name.includes('DEAD') ? 'Suboptimal — wait' : 'Optimal window ✓'}`,
     '   Psychology ........ State unknown — run /psychology',
     '',
-    '⚡ TOP PLAY: XAUUSD 89/100 | 4/4 LOCKS | 72% WIN RATE',
+    `⚡ TOP PLAY: XAUUSD 89/100 | 4/4 LOCKS | 72% WR | ${fmt(xau, 2)} ${dir(xau)}`,
     '',
     '🧠 INTELLIGENCE:',
     '   Retail positioned SHORT at equal lows.',
@@ -253,23 +284,23 @@ function godMode(): string[] {
   ];
 }
 
-function processCommand(raw: string): { lines: string[]; type: LogEntry['type'] } {
+function processCommand(raw: string, prices: Prices): { lines: string[]; type: LogEntry['type'] } {
   const t = raw.trim();
   const l = t.toLowerCase();
 
   if (l === '/help' || l === 'help') return { lines: HELP_LINES, type: 'system' };
-  if (l === '/scan all' || l === 'scan all') return { lines: scanAll(), type: 'analysis' };
+  if (l === '/scan all' || l === 'scan all') return { lines: scanAll(prices), type: 'analysis' };
   if (l.startsWith('/scan ') || l.startsWith('scan ')) {
     const asset = t.split(' ').slice(1).join('');
-    return { lines: scanAsset(asset), type: 'analysis' };
+    return { lines: scanAsset(asset, prices), type: 'analysis' };
   }
-  if (l === '/bias' || l.includes("what's the market") || l.includes("market doing")) return { lines: bias(), type: 'analysis' };
+  if (l === '/bias' || l.includes("what's the market") || l.includes("market doing")) return { lines: bias(prices), type: 'analysis' };
   if (l === '/session' || l.includes('what session')) return { lines: sessionInfo(), type: 'analysis' };
   if (l.startsWith('/sniper') || l === 'sniper') {
     const arg = l.replace('/sniper', '').trim();
-    return { lines: sniper(arg), type: 'analysis' };
+    return { lines: sniper(arg, prices), type: 'analysis' };
   }
-  if (l === '/god mode' || l === '/godmode' || l === 'god mode') return { lines: godMode(), type: 'analysis' };
+  if (l === '/god mode' || l === '/godmode' || l === 'god mode') return { lines: godMode(prices), type: 'analysis' };
   if (l === '/zen') return { lines: ['', '🧘 Waiting is a position. Patience is profitable.', '   The best trade is sometimes no trade.', '   Institutions wait days for perfect setups.', ''], type: 'system' };
   if (l.startsWith('/war room') || l.startsWith('war room')) {
     const asset = l.replace('/war room', '').replace('war room', '').trim().toUpperCase() || 'XAUUSD';
@@ -345,7 +376,22 @@ function processCommand(raw: string): { lines: string[]; type: LogEntry['type'] 
   }
   if (l === '/now' || l.includes("what's good") || l.includes('what should i trade')) {
     const s = getSession();
-    return { lines: [`⚡ ${s.icon} ${s.name} — ${s.strategy}`, '', ...scanAll()], type: 'analysis' };
+    return { lines: [`⚡ ${s.icon} ${s.name} — ${s.strategy}`, '', ...scanAll(prices)], type: 'analysis' };
+  }
+  if (l === '/prices' || l === 'prices') {
+    const lines = [
+      '════════════════════════════════════════════════════',
+      '💹 LIVE PRICES — All 11 Assets',
+      '════════════════════════════════════════════════════',
+      '',
+    ];
+    for (const a of ASSETS) {
+      const p = prices[a];
+      const d = p ? `${p.price.toFixed(a === 'NAS100' || a === 'SPX' || a === 'BTCUSD' ? 0 : a === 'XAUUSD' ? 2 : 4)}  ${dir(p)} ${(p.changePct >= 0 ? '+' : '') + p.changePct.toFixed(2)}%` : 'loading...';
+      lines.push(`   ${a.padEnd(8)} ${d}`);
+    }
+    lines.push('', '   Updates every 30s via Yahoo Finance', '════════════════════════════════════════════════════');
+    return { lines, type: 'analysis' };
   }
 
   return {
@@ -361,6 +407,7 @@ export const NexusTerminal = () => {
   const [histIdx, setHistIdx] = useState(-1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { prices, fetchedAt, loading: pricesLoading, error: pricesError } = usePrices();
 
   const push = (lines: string[], type: LogEntry['type']) => {
     const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -373,10 +420,23 @@ export const NexusTerminal = () => {
       'WARROOM NEXUS ACTIVATED ✓',
       `Session: ${s.icon} ${s.name} — ${s.strategy}`,
       '40+ knowledge base files loaded. EXA 4-LOCKS armed.',
-      'Type /help for all commands.',
+      'Live prices: fetching from Yahoo Finance...',
+      'Type /help for all commands. /prices for live feed.',
       '─────────────────────────────────────────────────',
     ], 'success');
   }, []);
+
+  // Notify when prices load or error
+  useEffect(() => {
+    if (!pricesLoading && fetchedAt) {
+      const count = Object.keys(prices).length;
+      push([`📡 Live prices loaded: ${count}/11 assets | Updated ${new Date(fetchedAt).toLocaleTimeString('en-GB')}`], 'success');
+    }
+  }, [fetchedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (pricesError) push([`⚠️ Price feed error: ${pricesError} — commands still work with playbook data`], 'warning');
+  }, [pricesError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -389,7 +449,7 @@ export const NexusTerminal = () => {
     setLogs(prev => [...prev, { message: `> ${input}`, type: 'input', timestamp: ts }]);
     setCmdHistory(prev => [input, ...prev.slice(0, 49)]);
     setHistIdx(-1);
-    const { lines, type } = processCommand(input);
+    const { lines, type } = processCommand(input, prices);
     setTimeout(() => push(lines, type), 60);
     setInput('');
   };
@@ -426,7 +486,11 @@ export const NexusTerminal = () => {
       <div className="bg-primary/10 px-4 py-2 border-b border-primary/20 flex justify-between items-center shrink-0">
         <span className="font-mono font-bold tracking-widest text-xs text-primary">WARROOM NEXUS CORE</span>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-white/30 font-mono">{new Date().toUTCString().slice(17, 25)} UTC</span>
+          <span className="text-xs text-white/30 font-mono">
+            {new Date().toUTCString().slice(17, 25)} UTC
+            {' · '}
+            {pricesLoading ? '📡 loading...' : pricesError ? '⚠️ no feed' : `📡 ${Object.keys(prices).length}/11 live`}
+          </span>
           <div className="flex gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
