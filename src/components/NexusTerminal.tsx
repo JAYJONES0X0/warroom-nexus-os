@@ -8,13 +8,33 @@ interface LogEntry {
 
 const ASSETS = ['EURUSD', 'XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'NZDUSD', 'NAS100', 'SPX', 'BTCUSD', 'DXY'];
 
-function getSession(): { name: string; strategy: string; icon: string } {
+// Real data extracted from WARROOM NEXUS playbooks
+const PLAYBOOK: Record<string, { winRate: number; sessions: string; correlation: string; behavior: string; avoid: string; rr: string }> = {
+  EURUSD: { winRate: 68, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse DXY (primary)', behavior: 'Trending with deep H4 retracements. Sweeps Asian highs/lows at London open.', avoid: 'After 18:00 GMT (low liquidity)', rr: '1:2.8 avg' },
+  XAUUSD: { winRate: 72, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse DXY 85%+ / Inverse US yields', behavior: 'Highest expectancy asset in system. Pre-CPI accumulation → post-CPI delivery. Geopolitical spike → fade.', avoid: 'During NFP/FOMC first 5min — whipsaw extreme', rr: '1:3.0 avg' },
+  GBPUSD: { winRate: 64, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse DXY / Positive EURUSD', behavior: 'Most volatile major. Best in London session. Fake breakouts common at NY open.', avoid: 'Low liquidity after 18:00 GMT', rr: '1:2.8 avg' },
+  USDJPY: { winRate: 71, sessions: 'Tokyo (00:00-03:00) + NY (12:00-15:00)', correlation: 'Positive DXY / Inverse risk-off flows', behavior: 'Safe-haven inverse. Follows US yields closely. Strong in NY session.', avoid: 'BoJ intervention risk — watch for sudden reversal', rr: '1:2.5 avg' },
+  GBPJPY: { winRate: 62, sessions: 'London (07:00-10:00)', correlation: 'Positive GBP / Inverse JPY safe-haven', behavior: 'Most volatile pair. 100-200pip daily range. High risk / high reward.', avoid: 'Asia session — manipulated / low liquidity', rr: '1:3.5 avg' },
+  AUDUSD: { winRate: 65, sessions: 'London (07:00-10:00) + Asia (00:00-07:00)', correlation: 'Positive risk-on / Inverse DXY', behavior: 'Commodity proxy. Follows iron ore and AUD data. Good Asia range fade.', avoid: 'During Chinese macro data uncertainty', rr: '1:2.2 avg' },
+  NZDUSD: { winRate: 63, sessions: 'Asia (00:00-07:00) + London (07:00-10:00)', correlation: 'Positive AUDUSD / Risk-on proxy', behavior: 'Follows AUDUSD. Less liquid. Better for range fades than trending plays.', avoid: 'Major risk-off events — thin liquidity amplifies losses', rr: '1:2.0 avg' },
+  NAS100: { winRate: 74, sessions: 'NY Open (14:30-16:00) + Pre-Market (13:00-14:30)', correlation: 'Positive risk-on / Inverse DXY (moderate)', behavior: 'Tech-heavy. Fed policy sensitive. Pre-market accumulation → NY open delivery.', avoid: 'FOMC weeks — erratic behavior', rr: '1:3.5 avg' },
+  SPX: { winRate: 73, sessions: 'NY Open (14:30-16:00) + Pre-Market (13:00-14:30)', correlation: 'Positive risk-on / Inverse VIX', behavior: 'Macro thermometer. Leads risk sentiment. Slower moves than NAS100.', avoid: 'CPI/FOMC day opens — gap risk', rr: '1:3.0 avg' },
+  BTCUSD: { winRate: 66, sessions: 'NY (14:30-16:00) + Weekend (Sat 12:00-18:00)', correlation: 'Positive NAS100 (during risk-on) / Decorrelated during extremes', behavior: '24/7 asset. Weekend liquidation sweeps common. Follows macro risk sentiment loosely.', avoid: 'Low liquidity weekend hours outside Sat window', rr: '1:4.0 avg' },
+  DXY: { winRate: 69, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse to all USD pairs and XAUUSD', behavior: 'Control variable. Use as confirmation, not primary trade. DXY direction determines USD pair direction.', avoid: 'Trading DXY directly — use correlated pairs instead', rr: 'N/A (directional bias indicator)' },
+};
+
+const SESSION_DATA = {
+  LONDON: { winRate: 67, bestPairs: 'GBPUSD(72%), EURUSD(68%)', optimalTime: '03:20-03:45 EST (08:20-08:45 GMT)', avgRange: '80-120 pips', topSetup: 'Asian High/Low Sweep + Reversal (65-70% WR)' },
+  NY: { winRate: 64, bestPairs: 'EURUSD(69%), NAS100, SPX', optimalTime: '09:00-09:45 EST (14:00-14:45 GMT)', avgRange: '100-150 pips', topSetup: 'London Continuation Play (70-75% WR) | AVOID 08:25-08:45 EST news chaos' },
+  ASIA: { winRate: 72, bestPairs: 'USDJPY(76%), AUDUSD(70%), NZDUSD', optimalTime: '20:00-01:00 EST (01:00-06:00 GMT)', avgRange: '20-40 pips', topSetup: 'Range Fade (70-75% WR) — fade extremes, tight stops' },
+};
+
+function getSession(): { name: string; strategy: string; icon: string; sessionKey: keyof typeof SESSION_DATA | null } {
   const h = new Date().getUTCHours() + new Date().getUTCMinutes() / 60;
-  if (h >= 7 && h < 10) return { name: 'LONDON KILLZONE', strategy: 'High volatility. Hunt liquidity sweeps. Aggressive entries.', icon: '🇬🇧' };
-  if (h >= 12 && h < 13) return { name: 'LONDON/NY OVERLAP', strategy: 'Highest liquidity window. Trend continuation. Prime execution.', icon: '⚡' };
-  if (h >= 13 && h < 16) return { name: 'NY KILLZONE', strategy: 'Reversal potential. Liquidity hunts. Watch for traps.', icon: '🇺🇸' };
-  if (h >= 0 && h < 8) return { name: 'ASIA RANGE', strategy: 'Range-bound. Respect S/R. Avoid breakouts.', icon: '🌏' };
-  return { name: 'DEAD ZONE', strategy: 'Low liquidity. Stand down. Wait for London.', icon: '💀' };
+  if (h >= 7 && h < 10) return { name: 'LONDON KILLZONE', strategy: `67% WR session. Best: GBPUSD+EURUSD. Hunt Asian high/low sweeps. Optimal: 08:20-08:45 GMT.`, icon: '🇬🇧', sessionKey: 'LONDON' };
+  if (h >= 12 && h < 15) return { name: 'NY KILLZONE', strategy: `64% WR session. Best: EURUSD+NAS100. London continuation plays. Avoid 13:25-13:45 GMT news chaos.`, icon: '🇺🇸', sessionKey: 'NY' };
+  if (h >= 0 && h < 7) return { name: 'ASIA RANGE', strategy: `72% WR range session. Best: USDJPY+AUDUSD. Fade range extremes. Sets highs/lows for London to sweep.`, icon: '🌏', sessionKey: 'ASIA' };
+  return { name: 'DEAD ZONE', strategy: 'Low liquidity 16:00-00:00 GMT. Stand down. Wait for London.', icon: '💀', sessionKey: null };
 }
 
 const HELP_LINES = [
@@ -76,49 +96,53 @@ function scanAll(): string[] {
 
 function scanAsset(asset: string): string[] {
   const upper = asset.toUpperCase();
-  if (!ASSETS.includes(upper)) return [`❌ Unknown asset: ${asset.toUpperCase()}`, `Available: ${ASSETS.join(', ')}`];
+  if (!ASSETS.includes(upper)) return [`❌ Unknown asset: ${upper}`, `Available: ${ASSETS.join(', ')}`];
   const s = getSession();
-  const lock3 = s.name.includes('KILLZONE') || s.name.includes('OVERLAP') ? '✓' : '✗';
+  const pb = PLAYBOOK[upper];
+  const sessionInOptimal = pb.sessions.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]);
+  const lock3 = sessionInOptimal ? '✓' : '✗';
+  const locks = sessionInOptimal ? 3 : 2;
+  const verdict = locks >= 3 ? '🟡 MONITOR' : '🔴 WAIT';
   return [
     '════════════════════════════════════════════════════',
     `🔍 ${upper} DEEP DIVE SCAN`,
     '════════════════════════════════════════════════════',
     '',
-    '🎯 VERDICT: MONITOR — 74/100 confluence | 3/4 EXA Locks',
+    `🎯 VERDICT: ${verdict} | ${locks}/4 EXA Locks | Playbook Win Rate: ${pb.winRate}%`,
     '',
-    '📊 STRUCTURE:',
-    '   HTF: Bullish campaign intact. Weekly above 20EMA. Daily range expansion.',
-    '   ITF: H4 structure shifting bullish. H1 retracing into OB.',
-    '   LTF: M15 compression. Awaiting M5 BOS for entry trigger.',
+    `📊 BEHAVIOR PROFILE:`,
+    `   ${pb.behavior}`,
     '',
-    '💧 LIQUIDITY:',
-    '   Key Draw: Previous day high (liquidity above)',
-    '   Order Block: H1 OB — 0.25% below current, 87% quality',
-    '   FVG: H4 fair value gap unfilled 0.35% below price',
-    '   Sweep Setup: Equal lows below — stop hunt before reversal',
+    '📊 STRUCTURE (manual confirmation required):',
+    '   HTF: Verify Weekly/Daily trend direction before entry',
+    '   ITF: H4/H1 — look for OB + FVG confluence zone',
+    '   LTF: M15/M5 — wait for CHoCH then BOS confirmation',
     '',
-    '🔗 CORRELATION MATRIX:',
-    '   DXY: Bearish structure → SUPPORTS long ✓',
-    '   EUR Basket: Broad strength across pairs → CONFIRMS ✓',
-    '   USD Basket: GBPUSD/AUDUSD also bullish → USD weakness ✓',
-    '   Risk Sentiment: SPX/NAS100 bid → ALIGNED ✓',
+    '💧 LIQUIDITY FRAMEWORK:',
+    '   Draw: Previous session high/low (primary liquidity target)',
+    '   Order Blocks: H4 OB = strongest. H1 OB = entry precision.',
+    '   FVG: Unfilled H4 gaps = magnet zones',
+    '   Sweep Setup: Equal highs/lows = stop hunt targets',
     '',
-    `⏰ SESSION: ${s.icon} ${s.name}`,
-    `   ${s.strategy}`,
+    `🔗 CORRELATION: ${pb.correlation}`,
+    `   Avoid when correlation conflicts — check DXY direction first`,
+    '',
+    `⏰ OPTIMAL SESSIONS: ${pb.sessions}`,
+    `   Current: ${s.icon} ${s.name}`,
+    `   ${sessionInOptimal ? '✓ IN SESSION WINDOW' : '✗ OUTSIDE OPTIMAL WINDOW — reduce conviction'}`,
     '',
     '🔐 EXA 4-LOCKS:',
-    '   ✓ Lock 1: Structure — HTF bullish, LTF retracing',
-    '   ✓ Lock 2: Liquidity Event — equal lows swept H4',
+    '   ✓ Lock 1: Structure — verify HTF trend before entry',
+    '   ? Lock 2: Liquidity Event — needs manual confirmation',
     `   ${lock3} Lock 3: Session Timing — ${s.name}`,
-    '   ✗ Lock 4: Confirmation — awaiting M15 CHoCH',
+    '   ? Lock 4: Confirmation — CHoCH/BOS on LTF needed',
     '',
-    '📈 TRADE PLAN (MONITOR — wait for Lock 4):',
-    '   Entry: M15 CHoCH confirmation',
-    '   Stop: Below swept equal lows',
-    '   Target 1: Previous session high (1:2 RR)',
-    '   Target 2: HTF OB above (1:4 RR)',
+    `📈 TRADE FRAMEWORK:`,
+    `   RR Target: ${pb.rr}`,
+    '   Entry: LTF CHoCH → BOS → entry on first pullback',
+    '   Stop: Below/above swept level (structure invalidation)',
     '',
-    '⚠️  RISK: Major news within 2h could invalidate structure.',
+    `⚠️  AVOID WHEN: ${pb.avoid}`,
     '════════════════════════════════════════════════════',
   ];
 }
@@ -149,6 +173,7 @@ function bias(): string[] {
 function sessionInfo(): string[] {
   const s = getSession();
   const utc = new Date().toUTCString().slice(17, 25);
+  const sd = s.sessionKey ? SESSION_DATA[s.sessionKey] : null;
   return [
     '════════════════════════════════════════════════════',
     `⏰ SESSION: ${s.icon} ${s.name} | UTC ${utc}`,
@@ -156,20 +181,21 @@ function sessionInfo(): string[] {
     '',
     `   ${s.strategy}`,
     '',
-    '📋 FULL SCHEDULE (GMT):',
-    '   00:00–08:00  🌏 Asia Range       — Range play, no breakouts',
-    '   07:00–10:00  🇬🇧 London Killzone  — Sweeps, aggressive entries',
-    '   12:00–13:00  ⚡ London/NY Overlap — Trend continuation, prime',
-    '   13:00–16:00  🇺🇸 NY Killzone      — Reversals, liquidity hunts',
-    '   16:00–00:00  💀 Dead Zone         — Stand down',
+    sd ? [
+      `📊 SESSION STATS (${sd.winRate}% WR — based on 500-1000 trades):`,
+      `   Best Pairs: ${sd.bestPairs}`,
+      `   Avg Range:  ${sd.avgRange}`,
+      `   Optimal Entry: ${sd.optimalTime}`,
+      `   Top Setup: ${sd.topSetup}`,
+    ].join('\n') : '',
     '',
-    '🎯 OPTIMAL ASSETS NOW:',
-    s.name.includes('LONDON') ? '   EURUSD, GBPUSD, XAUUSD' :
-    s.name.includes('NY') ? '   EURUSD, USDJPY, NAS100, SPX' :
-    s.name.includes('ASIA') ? '   USDJPY, AUDUSD, NZDUSD' :
-    '   No high-probability setups. Stand down.',
+    '📋 FULL SCHEDULE (GMT):',
+    '   00:00–07:00  🌏 Asia Range (72% WR)   — Range fade, USDJPY/AUDUSD',
+    '   07:00–10:00  🇬🇧 London KZ (67% WR)   — Sweeps, GBPUSD/EURUSD/XAUUSD',
+    '   12:00–15:00  🇺🇸 NY Killzone (64% WR)  — Continuation+reversal',
+    '   16:00–00:00  💀 Dead Zone              — Stand down, no setups',
     '════════════════════════════════════════════════════',
-  ];
+  ].filter(Boolean);
 }
 
 function sniper(arg: string): string[] {
