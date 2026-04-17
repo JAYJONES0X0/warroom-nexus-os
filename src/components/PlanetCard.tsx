@@ -1,6 +1,7 @@
 import { NexusTerminal } from "./NexusTerminal";
 import { ProtectionAudit } from "./ProtectionAudit";
 import { MarketsPanel } from "./MarketsPanel";
+import { PolymarketPanel } from "./PolymarketPanel";
 
 interface PlanetCardProps {
   name: string;
@@ -41,6 +42,8 @@ export const PlanetCard = ({ name, icon, isOpen, onClose }: PlanetCardProps) => 
             </button>
           </>
         );
+      case "Analytics":
+        return <PolymarketPanel />;
       case "Reports":
         return <ProtectionAudit />;
       default:
