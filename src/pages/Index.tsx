@@ -6,7 +6,7 @@ import { BottomTicker } from "@/components/BottomTicker";
 import { ThreeScene } from "@/components/ThreeScene";
 import { PlanetCard } from "@/components/PlanetCard";
 const Index = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !sessionStorage.getItem("nexus_loaded"));
   const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
   const leftSidebarItems = [{
     title: "EUR/USD",
@@ -68,8 +68,13 @@ const Index = () => {
   const handleCloseCard = () => {
     setSelectedPlanet(null);
   };
+
+  const handleLoadComplete = () => {
+    sessionStorage.setItem("nexus_loaded", "1");
+    setIsLoading(false);
+  };
   if (isLoading) {
-    return <LoadingScreen onComplete={() => setIsLoading(false)} />;
+    return <LoadingScreen onComplete={handleLoadComplete} />;
   }
   return <div className="relative w-full h-screen bg-black overflow-hidden">
       <ThreeScene onPlanetClick={handlePlanetClick} />
