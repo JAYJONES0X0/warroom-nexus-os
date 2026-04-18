@@ -69,23 +69,25 @@ const Planet = ({
           emissiveIntensity={hovered ? 0.4 : 0.08} />
       </mesh>
 
-      {/* Planet name label — always visible */}
-      <Html center position={[0, -(size + 1.5), 0]} distanceFactor={14} zIndexRange={[0, 0]}>
+      {/* Planet name label — always visible, fixed screen-space size */}
+      <Html center position={[0, -(size + 1.6), 0]} zIndexRange={[100, 100]}>
         <div style={{
-          color: hovered ? '#ffffff' : 'rgba(255,255,255,0.92)',
-          fontSize: hovered ? '13px' : '12px',
+          color: '#ffffff',
+          fontSize: '11px',
           fontFamily: 'monospace',
           fontWeight: '900',
-          letterSpacing: '0.18em',
+          letterSpacing: '0.2em',
           textTransform: 'uppercase',
-          textShadow: `0 0 12px ${glowColor}, 0 0 24px ${glowColor}60, 0 2px 4px rgba(0,0,0,1)`,
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
           userSelect: 'none',
-          transition: 'all 0.15s',
-          background: hovered ? `${glowColor}20` : 'transparent',
-          padding: hovered ? '2px 8px' : '0',
+          padding: '2px 7px',
           borderRadius: '4px',
+          background: hovered ? `${glowColor}30` : 'rgba(0,0,0,0.55)',
+          border: hovered ? `1px solid ${glowColor}60` : '1px solid rgba(255,255,255,0.08)',
+          textShadow: `0 0 10px ${glowColor}, 0 1px 3px rgba(0,0,0,1)`,
+          boxShadow: hovered ? `0 0 12px ${glowColor}40` : 'none',
+          transition: 'all 0.15s',
         }}>
           {name}
         </div>
@@ -240,8 +242,8 @@ export const ThreeScene = ({
   ];
   return <div className="fixed inset-0 z-[1]">
       <Canvas camera={{
-      position: [0, 15, 55],
-      fov: 75
+      position: [0, 22, 68],
+      fov: 65
     }} className="text-secondary-foreground">
         {/* Ambient and key lighting - bright for HD texture visibility */}
         <ambientLight intensity={1.2} />
@@ -269,7 +271,7 @@ export const ThreeScene = ({
         {/* Orbiting planets */}
         {planetsData.map(planet => <Planet key={planet.name} name={planet.name} icon={planet.icon} distance={planet.distance} angle={planet.angle} texture={planet.texture} size={planet.size} glowColor={planet.glowColor} color="#ffffff" onClick={() => onPlanetClick(planet.name)} onHover={() => {}} />)}
 
-        <OrbitControls enableDamping dampingFactor={0.05} enableZoom enablePan={false} minDistance={30} maxDistance={120} autoRotate autoRotateSpeed={0.15} />
+        <OrbitControls enableDamping dampingFactor={0.05} enableZoom enablePan={false} minDistance={40} maxDistance={140} autoRotate autoRotateSpeed={0.12} />
       </Canvas>
     </div>;
 };
