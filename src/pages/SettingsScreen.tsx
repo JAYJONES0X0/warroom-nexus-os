@@ -1,106 +1,72 @@
 import { useState } from "react";
-import { PlanetOrb } from "@/components/PlanetOrb";
+import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import settingsTexture from "@/assets/textures/settings-realistic.jpg";
 
 const SettingsScreen = () => {
   const [risk, setRisk] = useState("1.0");
-  const [maxDrawdown, setMaxDrawdown] = useState("5.0");
+  const [maxDD, setMaxDD] = useState("5.0");
   const [session, setSession] = useState("London+NY");
-  const [groqKey, setGroqKey] = useState("gsk_••••••••••••••••••••••••••••••••");
-  const [mode, setMode] = useState<"Live" | "Paper">("Paper");
-
+  const [mode, setMode] = useState<"Paper" | "Live">("Paper");
+  const [groqKey, setGroqKey] = useState("gsk_••••••••••••••••••••••••");
   return (
-    <div className="min-h-screen bg-[#09090b] text-white overflow-y-auto">
-      <PlanetOrb texture={settingsTexture} glowColor="#00ff88" label="NEXUS" />
-      <div className="px-8 pt-8 pb-6 border-b border-white/[0.06]">
-        <div className="text-[10px] text-emerald-400/60 uppercase tracking-[0.3em] font-mono mb-1">WARROOM NEXUS</div>
-        <div className="text-3xl font-black tracking-wider">SETTINGS</div>
-        <div className="text-sm text-white/40 font-mono mt-1">Risk parameters · API keys · Session config</div>
-      </div>
-
-      <div className="px-8 py-6 max-w-[800px] mx-auto space-y-6">
-        {/* Trading Mode */}
+    <PlanetPageLayout
+      texture={settingsTexture}
+      glowColor="#00ff88"
+      bgColor="#000a05"
+      screenName="SETTINGS"
+      screenDesc="Risk parameters · Session config · API keys · Trading mode"
+    >
+      <div className="space-y-5">
+        {/* Mode toggle */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-emerald-400/70 uppercase tracking-[0.2em] font-mono mb-5">TRADING MODE</div>
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">TRADING MODE</div>
           <div className="flex gap-3">
-            {(["Paper", "Live"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`flex-1 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all border ${
-                  mode === m
-                    ? m === "Live" ? "bg-red-500/15 border-red-500/40 text-red-400" : "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
-                    : "bg-white/[0.02] border-white/[0.06] text-white/30"
-                }`}
-              >
-                {m === "Live" ? "⚡ " : "📋 "}{m} Trading
+            {(["Paper","Live"] as const).map((m) => (
+              <button key={m} onClick={() => setMode(m)} className="flex-1 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all border" style={mode === m
+                ? { background: m === "Live" ? "rgba(239,68,68,0.12)" : "rgba(0,255,136,0.1)", borderColor: m === "Live" ? "rgba(239,68,68,0.4)" : "rgba(0,255,136,0.35)", color: m === "Live" ? "#ef4444" : "#00ff88" }
+                : { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.25)" }}>
+                {m === "Live" ? "⚡ " : "📋 "}{m}
               </button>
             ))}
           </div>
-          {mode === "Live" && (
-            <div className="mt-3 p-3 bg-red-500/[0.08] border border-red-500/20 rounded-lg text-xs text-red-400 font-mono">
-              ⚠ Live mode uses real capital. Ensure all risk parameters are verified before trading.
-            </div>
-          )}
+          {mode === "Live" && <div className="mt-3 p-3 bg-red-500/[0.07] border border-red-500/20 rounded-lg text-xs text-red-400/80 font-mono">⚠ Live mode uses real capital. Verify all risk parameters first.</div>}
         </div>
 
-        {/* Risk Management */}
+        {/* Risk */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-emerald-400/70 uppercase tracking-[0.2em] font-mono mb-5">RISK MANAGEMENT</div>
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">RISK MANAGEMENT</div>
           <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: "Risk Per Trade (%)", value: risk, set: setRisk, hint: "Max 2% recommended" },
-              { label: "Max Daily Drawdown (%)", value: maxDrawdown, set: setMaxDrawdown, hint: "Hard stop at this level" },
-            ].map(({ label, value, set, hint }) => (
-              <div key={label}>
-                <label className="text-[10px] text-white/40 uppercase tracking-wider font-mono mb-1.5 block">{label}</label>
-                <input
-                  value={value}
-                  onChange={(e) => set(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/50 mb-1"
-                />
-                <div className="text-[10px] text-white/25 font-mono">{hint}</div>
+            {[["Risk Per Trade (%)", risk, setRisk, "Max 2% recommended"], ["Max Daily Drawdown (%)", maxDD, setMaxDD, "Hard stop at this level"]].map(([l, v, set, hint]: any) => (
+              <div key={l}>
+                <label className="text-[10px] text-white/30 uppercase font-mono mb-1.5 block">{l}</label>
+                <input value={v} onChange={(e) => set(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40 mb-1" />
+                <div className="text-[10px] text-white/20 font-mono">{hint}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Session Config */}
+        {/* Session */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-emerald-400/70 uppercase tracking-[0.2em] font-mono mb-5">SESSION CONFIG</div>
-          <div>
-            <label className="text-[10px] text-white/40 uppercase tracking-wider font-mono mb-1.5 block">Active Sessions</label>
-            <select
-              value={session}
-              onChange={(e) => setSession(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/50"
-            >
-              {["London", "NY", "London+NY", "Asian", "All Sessions"].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">SESSION CONFIG</div>
+          <label className="text-[10px] text-white/30 uppercase font-mono mb-1.5 block">Active Sessions</label>
+          <select value={session} onChange={(e) => setSession(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40">
+            {["London","NY","London+NY","Asian","All Sessions"].map((s) => <option key={s}>{s}</option>)}
+          </select>
         </div>
 
-        {/* API Keys */}
+        {/* API */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-emerald-400/70 uppercase tracking-[0.2em] font-mono mb-5">API KEYS</div>
-          <div>
-            <label className="text-[10px] text-white/40 uppercase tracking-wider font-mono mb-1.5 block">Groq API Key</label>
-            <input
-              type="password"
-              value={groqKey}
-              onChange={(e) => setGroqKey(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/50"
-            />
-          </div>
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">API KEYS</div>
+          <label className="text-[10px] text-white/30 uppercase font-mono mb-1.5 block">Groq API Key</label>
+          <input type="password" value={groqKey} onChange={(e) => setGroqKey(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40" />
         </div>
 
-        <button className="w-full py-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl font-black uppercase tracking-[0.15em] text-sm hover:bg-emerald-500/20 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.2)] transition-all">
+        <button className="w-full py-4 rounded-xl font-black uppercase tracking-[0.15em] text-sm transition-all hover:-translate-y-0.5 border" style={{ background: "rgba(0,255,136,0.08)", borderColor: "rgba(0,255,136,0.3)", color: "#00ff88" }}>
           SAVE SETTINGS
         </button>
       </div>
-    </div>
+    </PlanetPageLayout>
   );
 };
 

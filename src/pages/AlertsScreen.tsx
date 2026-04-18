@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { PlanetOrb } from "@/components/PlanetOrb";
+import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import alertsTexture from "@/assets/textures/alerts-realistic.jpg";
 
-const ALERTS = [
+const INITIAL = [
   { id: 1, asset: "EUR/USD", type: "Price Level", condition: "Price reaches 1.0900", status: "WATCHING", priority: "HIGH" },
   { id: 2, asset: "XAU/USD", type: "Session Open", condition: "London killzone start (09:00 UTC)", status: "TRIGGERED", priority: "MED" },
   { id: 3, asset: "BTC/USD", type: "Confluence", condition: "3+ locks confirmed on H4", status: "WATCHING", priority: "HIGH" },
@@ -12,66 +12,49 @@ const ALERTS = [
 ];
 
 const AlertsScreen = () => {
-  const [alerts, setAlerts] = useState(ALERTS);
+  const [alerts, setAlerts] = useState(INITIAL);
   const triggered = alerts.filter((a) => a.status === "TRIGGERED").length;
-
-  const dismiss = (id: number) => setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, status: "IDLE" } : a));
-
+  const dismiss = (id: number) => setAlerts((p) => p.map((a) => a.id === id ? { ...a, status: "IDLE" } : a));
   return (
-    <div className="min-h-screen bg-[#09090b] text-white overflow-y-auto">
-      <PlanetOrb texture={alertsTexture} glowColor="#ff8800" label="NEXUS" />
-      <div className="px-8 pt-8 pb-6 border-b border-white/[0.06]">
-        <div className="text-[10px] text-emerald-400/60 uppercase tracking-[0.3em] font-mono mb-1">WARROOM NEXUS</div>
-        <div className="text-3xl font-black tracking-wider">ALERT MANAGER</div>
-        <div className="text-sm text-white/40 font-mono mt-1">{triggered} triggered · {alerts.length} total alerts</div>
-      </div>
-
-      <div className="px-8 py-6 max-w-[1400px] mx-auto space-y-3">
+    <PlanetPageLayout
+      texture={alertsTexture}
+      glowColor="#ff8800"
+      bgColor="#0a0400"
+      screenName="ALERT MANAGER"
+      screenDesc={`${triggered} triggered · ${alerts.length} total · Real-time confluence triggers`}
+    >
+      <div className="space-y-2.5">
         {alerts.map((a) => (
-          <div
-            key={a.id}
-            className={`flex items-center justify-between p-5 rounded-xl border transition-all ${
-              a.status === "TRIGGERED" ? "bg-orange-500/[0.08] border-orange-500/30" :
-              a.status === "WATCHING" ? "bg-white/[0.02] border-white/[0.06]" :
-              "bg-white/[0.01] border-white/[0.03] opacity-50"
-            }`}
-          >
+          <div key={a.id} className="flex items-center justify-between p-5 rounded-xl border transition-all" style={{
+            background: a.status === "TRIGGERED" ? "rgba(255,136,0,0.07)" : a.status === "WATCHING" ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.01)",
+            borderColor: a.status === "TRIGGERED" ? "rgba(255,136,0,0.3)" : a.status === "WATCHING" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+            opacity: a.status === "IDLE" ? 0.45 : 1,
+          }}>
             <div className="flex items-center gap-4">
-              <div className={`w-2 h-2 rounded-full ${
-                a.status === "TRIGGERED" ? "bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.8)]" :
-                a.status === "WATCHING" ? "bg-emerald-400" : "bg-white/20"
-              }`} />
+              <div className="w-2 h-2 rounded-full" style={{
+                background: a.status === "TRIGGERED" ? "#ff8800" : a.status === "WATCHING" ? "#10b981" : "rgba(255,255,255,0.2)",
+                boxShadow: a.status === "TRIGGERED" ? "0 0 8px #ff880099" : "none",
+              }} />
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <span className="text-sm font-black text-white">{a.asset}</span>
-                  <span className="text-[10px] text-white/40 font-mono">{a.type}</span>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                    a.priority === "HIGH" ? "bg-red-500/15 text-red-400" :
-                    a.priority === "MED" ? "bg-yellow-500/15 text-yellow-400" :
-                    "bg-white/[0.05] text-white/30"
-                  }`}>{a.priority}</span>
+                  <span className="text-[10px] text-white/35 font-mono">{a.type}</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded" style={{
+                    color: a.priority === "HIGH" ? "#ef4444" : a.priority === "MED" ? "#f59e0b" : "rgba(255,255,255,0.3)",
+                    background: a.priority === "HIGH" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
+                  }}>{a.priority}</span>
                 </div>
-                <div className="text-xs text-white/50 font-mono">{a.condition}</div>
+                <div className="text-xs text-white/40 font-mono">{a.condition}</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className={`text-xs font-black uppercase ${
-                a.status === "TRIGGERED" ? "text-orange-400" :
-                a.status === "WATCHING" ? "text-emerald-400" : "text-white/20"
-              }`}>{a.status}</span>
-              {a.status === "TRIGGERED" && (
-                <button
-                  onClick={() => dismiss(a.id)}
-                  className="text-[10px] text-white/30 hover:text-white/60 font-mono border border-white/[0.08] px-2 py-1 rounded transition-colors"
-                >
-                  DISMISS
-                </button>
-              )}
+              <span className="text-xs font-black uppercase" style={{ color: a.status === "TRIGGERED" ? "#ff8800" : a.status === "WATCHING" ? "#10b981" : "rgba(255,255,255,0.2)" }}>{a.status}</span>
+              {a.status === "TRIGGERED" && <button onClick={() => dismiss(a.id)} className="text-[10px] text-white/25 hover:text-white/60 font-mono border border-white/[0.08] px-2 py-1 rounded transition-colors">DISMISS</button>}
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </PlanetPageLayout>
   );
 };
 
