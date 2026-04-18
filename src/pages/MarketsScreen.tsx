@@ -1,0 +1,19 @@
+import { PlanetOrb } from "@/components/PlanetOrb";
+import { MarketsPanel } from "@/components/MarketsPanel";
+import marketsTexture from "@/assets/textures/markets-realistic.jpg";
+
+const MarketsScreen = () => (
+  <div className="min-h-screen bg-[#09090b] text-white overflow-y-auto">
+    <PlanetOrb texture={marketsTexture} glowColor="#ff4444" label="NEXUS" />
+    <div className="px-8 pt-8 pb-6 border-b border-white/[0.06]">
+      <div className="text-[10px] text-emerald-400/60 uppercase tracking-[0.3em] font-mono mb-1">WARROOM NEXUS</div>
+      <div className="text-3xl font-black tracking-wider">MARKETS FEED</div>
+      <div className="text-sm text-white/40 font-mono mt-1">Live prices · Confluence scanning · Session overview</div>
+    </div>
+    <div className="px-8 py-6 max-w-[1400px] mx-auto">
+      <MarketsPanel />
+    </div>
+  </div>
+);
+
+export default MarketsScreen;
