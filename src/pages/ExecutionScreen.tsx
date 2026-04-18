@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { useEXAScores } from "@/hooks/useEXAScores";
 import executionTexture from "@/assets/textures/execution-realistic.jpg";
 
 const LOCKS = [
@@ -10,8 +11,8 @@ const LOCKS = [
   { id: 4, name: "Confirmation", desc: "Displacement or BOS confirmed" },
 ];
 
-const EXALocks = () => {
-  const [locks, setLocks] = useState([true, true, true, false]);
+const EXALocks = ({ liveLocks }: { liveLocks: boolean[] }) => {
+  const [locks, setLocks] = useState(liveLocks);
   const count = locks.filter(Boolean).length;
   const verdict = count === 4 ? "DEPLOY" : count >= 3 ? "MONITOR" : "DENIED";
   const vc = verdict === "DEPLOY" ? "#10b981" : verdict === "MONITOR" ? "#f59e0b" : "#ef4444";
@@ -119,9 +120,10 @@ const OrderEntry = () => {
 };
 
 const ExecutionScreen = () => {
-  const [scores] = useState({ technical: 74, risk: 68, sentiment: 55, volatility: 81, liquidity: 72 });
-  const composite = Math.round(scores.technical * 0.25 + scores.risk * 0.30 + scores.sentiment * 0.15 + scores.volatility * 0.15 + scores.liquidity * 0.15);
-  const verdict = composite >= 85 ? "AUTHORIZED" : composite >= 65 ? "DELAY" : "DENIED";
+  const exa = useEXAScores("EURUSD");
+  const scores = { technical: exa.technical, risk: exa.risk, sentiment: exa.sentiment, volatility: exa.volatility, liquidity: exa.liquidity };
+  const composite = exa.composite;
+  const verdict = exa.verdict;
   const vc = verdict === "AUTHORIZED" ? "#10b981" : verdict === "DELAY" ? "#f59e0b" : "#ef4444";
   return (
     <PlanetPageLayout
@@ -161,7 +163,7 @@ const ExecutionScreen = () => {
         </div>
       </div>
       <OrderEntry />
-      <EXALocks />
+      <EXALocks liveLocks={exa.locks} />
     </PlanetPageLayout>
   );
 };

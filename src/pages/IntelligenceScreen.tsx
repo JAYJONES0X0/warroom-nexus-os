@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { NexusTerminal } from "@/components/NexusTerminal";
+import { usePrices } from "@/hooks/usePrices";
 import intelligenceTexture from "@/assets/textures/intelligence-realistic.jpg";
 
 const PATTERNS = [
@@ -11,18 +12,113 @@ const PATTERNS = [
   { id: 5, name: "Kill Zone Accumulation", asset: "USD/JPY", bias: "BULLISH", conf: 58, tf: "H4", status: "WATCH" },
 ];
 
-const ARCHON = [
-  { time: "09:14", msg: "DEPLOY — EUR/USD BUY 1.0847 SL 1.0810 TP 1.0965 (R:R 3.2)", urgency: "HIGH" },
-  { time: "08:45", msg: "MONITOR — XAU/USD bearish structure. Wait for NY liquidity grab.", urgency: "MED" },
-  { time: "07:30", msg: "DENIED — GBP/USD setup invalidated. Structure shifted H4.", urgency: "LOW" },
-  { time: "06:00", msg: "SESSION — London killzone open. High probability 09:00-11:00 UTC.", urgency: "INFO" },
-];
+const PAIRS_FOR_ARCHON = ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "BTCUSD"];
+
+function getSession() {
+  const h = new Date().getUTCHours() + new Date().getUTCMinutes() / 60;
+  if (h >= 7 && h < 10) return "London Killzone";
+  if (h >= 12 && h < 15) return "NY Killzone";
+  if (h >= 0 && h < 7) return "Asian Session";
+  return "Dead Zone";
+}
 
 const TABS = ["Patterns", "Predictions", "Sentiment", "ARCHON"];
+
+const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
+  const [selectedPair, setSelectedPair] = useState("EURUSD");
+  const [signal, setSignal] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const runArchon = async () => {
+    setLoading(true);
+    setSignal(null);
+    try {
+      const res = await fetch("/api/archon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pair: selectedPair, prices, session: getSession() }),
+      });
+      const data = await res.json();
+      if (data.signal) setSignal(data.signal);
+    } catch { /* silent */ }
+    setLoading(false);
+  };
+
+  const signalColor = signal?.signal === "DEPLOY" ? "#10b981" : signal?.signal === "MONITOR" ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div className="space-y-4">
+      <div className="p-3 rounded-xl border" style={{ background: "rgba(170,68,255,0.06)", borderColor: "rgba(170,68,255,0.2)" }}>
+        <div className="text-[10px] text-white/40 font-mono">ARCHON — autonomous override protocol powered by Groq + EXA 4-LOCKS</div>
+      </div>
+
+      <div className="flex gap-3">
+        <select value={selectedPair} onChange={(e) => setSelectedPair(e.target.value)}
+          className="flex-1 bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-purple-500/40">
+          {PAIRS_FOR_ARCHON.map((p) => <option key={p}>{p}</option>)}
+        </select>
+        <button onClick={runArchon} disabled={loading}
+          className="px-5 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all disabled:opacity-50 border"
+          style={{ background: "rgba(170,68,255,0.12)", borderColor: "rgba(170,68,255,0.4)", color: "#aa44ff" }}>
+          {loading ? "ANALYZING..." : "RUN ARCHON →"}
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-3 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+          <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+          <span className="text-xs text-white/40 font-mono">ARCHON analyzing {selectedPair} with live market data...</span>
+        </div>
+      )}
+
+      {signal && (
+        <div className="space-y-3">
+          <div className="p-5 rounded-xl border" style={{ background: `${signalColor}08`, borderColor: `${signalColor}30` }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-black" style={{ color: signalColor }}>{signal.signal}</span>
+                <span className="text-sm text-white/60 font-mono">{signal.pair}</span>
+                <span className="text-xs font-black px-2 py-0.5 rounded" style={{ color: signal.bias === "BULLISH" ? "#10b981" : signal.bias === "BEARISH" ? "#ef4444" : "#f59e0b", background: "rgba(255,255,255,0.05)" }}>{signal.bias}</span>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-black" style={{ color: signalColor }}>{signal.confluence}</div>
+                <div className="text-[10px] text-white/30 font-mono">confluence</div>
+              </div>
+            </div>
+            <p className="text-xs text-white/60 font-mono leading-relaxed mb-3">{signal.reasoning}</p>
+            {signal.entry && (
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {[["Entry", signal.entry], ["Stop Loss", signal.sl], ["Take Profit", signal.tp], ["R:R", signal.rr ? `1:${signal.rr}` : "—"]].map(([l, v]: any) => (
+                  <div key={l} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 text-center">
+                    <div className="text-[9px] text-white/30 uppercase font-mono mb-0.5">{l}</div>
+                    <div className="text-xs font-black text-white">{v || "—"}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 flex-wrap">
+              {signal.locks?.map((locked: boolean, i: number) => (
+                <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{
+                  background: locked ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.08)",
+                  color: locked ? "#10b981" : "#ef444460",
+                  border: `1px solid ${locked ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.12)"}`,
+                }}>
+                  L{i + 1} {locked ? "✓" : "✗"}
+                </span>
+              ))}
+              <span className="text-[10px] font-mono text-white/30 ml-2">{signal.session_note}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const IntelligenceScreen = () => {
   const [selected, setSelected] = useState<number>(1);
   const [tab, setTab] = useState("Patterns");
+  const { prices } = usePrices();
   const pattern = PATTERNS.find((p) => p.id === selected);
 
   return (
@@ -138,28 +234,7 @@ const IntelligenceScreen = () => {
             ))}
           </div>
         )}
-        {tab === "ARCHON" && (
-          <div className="space-y-3">
-            <div className="p-3 rounded-xl border mb-4" style={{ background: "rgba(170,68,255,0.06)", borderColor: "rgba(170,68,255,0.2)" }}>
-              <div className="text-[10px] text-white/30 font-mono">ARCHON PROTOCOL — autonomous signal generation via 4-LOCKS + EXA composite scoring</div>
-            </div>
-            {ARCHON.map((s, i) => (
-              <div key={i} className="p-4 rounded-xl border" style={{
-                background: s.urgency === "HIGH" ? "rgba(16,185,129,0.06)" : s.urgency === "MED" ? "rgba(245,158,11,0.05)" : "rgba(255,255,255,0.02)",
-                borderColor: s.urgency === "HIGH" ? "rgba(16,185,129,0.2)" : s.urgency === "MED" ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.05)",
-              }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] text-white/25 font-mono">{s.time}</span>
-                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded" style={{
-                    color: s.urgency === "HIGH" ? "#10b981" : s.urgency === "MED" ? "#f59e0b" : "rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.04)",
-                  }}>{s.urgency}</span>
-                </div>
-                <div className="text-xs text-white/60 font-mono leading-relaxed">{s.msg}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        {tab === "ARCHON" && <ArchonTab prices={prices} />}
       </div>
 
       {/* Terminal */}
