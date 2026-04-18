@@ -64,31 +64,34 @@ const Planet = ({
         onPointerOver={() => { setHovered(true); onHover(true); document.body.style.cursor = "pointer"; }}
         onPointerOut={() => { setHovered(false); onHover(false); document.body.style.cursor = "default"; }}>
         <sphereGeometry args={[size, 64, 64]} />
-        <meshStandardMaterial map={planetTexture} metalness={0.05} roughness={0.9}
-          emissive={hovered ? new THREE.Color(glowColor) : new THREE.Color(0x000000)}
-          emissiveIntensity={hovered ? 0.3 : 0} />
+        <meshStandardMaterial map={planetTexture} metalness={0.05} roughness={0.85}
+          emissive={new THREE.Color(glowColor)}
+          emissiveIntensity={hovered ? 0.4 : 0.08} />
       </mesh>
 
-      {/* Planet name label */}
-      <Html center position={[0, -(size + 1.2), 0]} distanceFactor={18} zIndexRange={[0, 0]}>
+      {/* Planet name label — always visible */}
+      <Html center position={[0, -(size + 1.5), 0]} distanceFactor={14} zIndexRange={[0, 0]}>
         <div style={{
-          color: hovered ? '#ffffff' : 'rgba(255,255,255,0.65)',
-          fontSize: '11px',
+          color: hovered ? '#ffffff' : 'rgba(255,255,255,0.92)',
+          fontSize: hovered ? '13px' : '12px',
           fontFamily: 'monospace',
-          fontWeight: 'bold',
-          letterSpacing: '0.12em',
+          fontWeight: '900',
+          letterSpacing: '0.18em',
           textTransform: 'uppercase',
-          textShadow: `0 0 8px ${glowColor}, 0 1px 3px rgba(0,0,0,0.8)`,
+          textShadow: `0 0 12px ${glowColor}, 0 0 24px ${glowColor}60, 0 2px 4px rgba(0,0,0,1)`,
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
           userSelect: 'none',
-          transition: 'all 0.2s',
+          transition: 'all 0.15s',
+          background: hovered ? `${glowColor}20` : 'transparent',
+          padding: hovered ? '2px 8px' : '0',
+          borderRadius: '4px',
         }}>
           {name}
         </div>
       </Html>
 
-      <pointLight color={glowColor} intensity={hovered ? 1.5 : 0.4} distance={14} />
+      <pointLight color={glowColor} intensity={hovered ? 2.5 : 1.0} distance={16} />
     </group>;
 };
 const Starfield = () => {
@@ -224,16 +227,16 @@ export const ThreeScene = ({
   // Inner ring — core trading planets (distance 18)
   // Outer ring — support planets (distance 30)
   const planetsData = [
-    { name: "Markets",     texture: marketsTexture,     icon: "📊", distance: 18, angle: 0,   size: 2.6, glowColor: "#ff4444" },
-    { name: "Intelligence",texture: intelligenceTexture, icon: "🧠", distance: 18, angle: 90,  size: 2.8, glowColor: "#aa44ff" },
-    { name: "Execution",   texture: executionTexture,   icon: "⚡", distance: 18, angle: 180, size: 2.4, glowColor: "#ffdd00" },
-    { name: "Analytics",   texture: analyticsTexture,   icon: "📈", distance: 18, angle: 270, size: 2.5, glowColor: "#0099ff" },
-    { name: "Alerts",      texture: alertsTexture,      icon: "🔔", distance: 30, angle: 0,   size: 2.2, glowColor: "#ff8800" },
-    { name: "Journal",     texture: journalTexture,     icon: "📝", distance: 30, angle: 60,  size: 2.3, glowColor: "#aaaaaa" },
-    { name: "Reports",     texture: historyTexture,     icon: "📋", distance: 30, angle: 120, size: 2.0, glowColor: "#44ffaa" },
-    { name: "Trades",      texture: tradesTexture,      icon: "💹", distance: 30, angle: 180, size: 2.5, glowColor: "#00ddff" },
-    { name: "History",     texture: historyTexture,     icon: "🕐", distance: 30, angle: 240, size: 2.1, glowColor: "#ff9944" },
-    { name: "Settings",    texture: settingsTexture,    icon: "⚙️", distance: 30, angle: 300, size: 1.9, glowColor: "#00ff88" },
+    { name: "Markets",     texture: marketsTexture,     icon: "📊", distance: 18, angle: 0,   size: 3.0, glowColor: "#ff4444" },
+    { name: "Intelligence",texture: intelligenceTexture, icon: "🧠", distance: 18, angle: 90,  size: 3.2, glowColor: "#aa44ff" },
+    { name: "Execution",   texture: executionTexture,   icon: "⚡", distance: 18, angle: 180, size: 2.9, glowColor: "#ffdd00" },
+    { name: "Analytics",   texture: analyticsTexture,   icon: "📈", distance: 18, angle: 270, size: 3.0, glowColor: "#0099ff" },
+    { name: "Alerts",      texture: alertsTexture,      icon: "🔔", distance: 30, angle: 0,   size: 2.6, glowColor: "#ff8800" },
+    { name: "Journal",     texture: journalTexture,     icon: "📝", distance: 30, angle: 60,  size: 2.6, glowColor: "#c0c0c0" },
+    { name: "Reports",     texture: historyTexture,     icon: "📋", distance: 30, angle: 120, size: 2.4, glowColor: "#44ffaa" },
+    { name: "Trades",      texture: tradesTexture,      icon: "💹", distance: 30, angle: 180, size: 2.7, glowColor: "#00ddff" },
+    { name: "History",     texture: historyTexture,     icon: "🕐", distance: 30, angle: 240, size: 2.4, glowColor: "#ff9944" },
+    { name: "Settings",    texture: settingsTexture,    icon: "⚙️", distance: 30, angle: 300, size: 2.3, glowColor: "#00ff88" },
   ];
   return <div className="fixed inset-0 z-[1]">
       <Canvas camera={{
