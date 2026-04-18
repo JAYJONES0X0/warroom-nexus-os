@@ -83,11 +83,13 @@ const Planet = ({
           userSelect: 'none',
           padding: '2px 7px',
           borderRadius: '4px',
-          background: hovered ? `${glowColor}30` : 'rgba(0,0,0,0.55)',
-          border: hovered ? `1px solid ${glowColor}60` : '1px solid rgba(255,255,255,0.08)',
+          background: `${glowColor}25`,
+          border: `1px solid ${glowColor}50`,
           textShadow: `0 0 10px ${glowColor}, 0 1px 3px rgba(0,0,0,1)`,
-          boxShadow: hovered ? `0 0 12px ${glowColor}40` : 'none',
-          transition: 'all 0.15s',
+          boxShadow: `0 0 10px ${glowColor}30`,
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? 'translateY(0px)' : 'translateY(4px)',
+          transition: 'opacity 0.15s, transform 0.15s',
         }}>
           {name}
         </div>
