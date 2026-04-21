@@ -35,10 +35,14 @@ function scoreMarket(m: GammaMarket): number {
   return Math.min(100, volScore + liqScore + edgeScore + spikeBonus);
 }
 
-function edgeLabel(score: number): string {
-  if (score >= 80) return '🟢 HIGH EDGE';
-  if (score >= 60) return '🟡 MONITOR';
-  return '🔴 LOW EDGE';
+function edgeLabel(yesPrice: number): string {
+  // Near-certain = no edge (already priced in)
+  if (yesPrice >= 0.88 || yesPrice <= 0.12) return 'NEUTRAL';
+  // Sweet spot: YES underpriced (crowd leans NO but uncertainty exists)
+  if (yesPrice >= 0.15 && yesPrice <= 0.46) return 'YES EDGE';
+  // Sweet spot: NO underpriced (crowd leans YES but uncertainty exists)
+  if (yesPrice >= 0.54 && yesPrice <= 0.85) return 'NO EDGE';
+  return 'NEUTRAL';
 }
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
@@ -54,27 +58,32 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     const raw: GammaMarket[] = await resp.json();
 
-    const markets = raw.slice(0, 12).map(m => {
-      const prices = JSON.parse(m.outcomePrices || '["0.5","0.5"]').map(Number);
-      const outcomeNames = JSON.parse(m.outcomes || '["Yes","No"]');
-      const score = scoreMarket(m);
-      const daysLeft = m.endDate
-        ? Math.max(0, Math.ceil((new Date(m.endDate).getTime() - Date.now()) / 86400000))
-        : null;
+    const markets = raw
+      .map(m => {
+        const prices = JSON.parse(m.outcomePrices || '["0.5","0.5"]').map(Number);
+        const outcomeNames = JSON.parse(m.outcomes || '["Yes","No"]');
+        const yesPrice = prices[0] ?? 0.5;
+        const score = scoreMarket(m);
+        const daysLeft = m.endDate
+          ? Math.max(0, Math.ceil((new Date(m.endDate).getTime() - Date.now()) / 86400000))
+          : null;
 
-      return {
-        id: m.id,
-        question: m.question,
-        volume24h: Math.round(m.volume24hr || 0),
-        liquidity: Math.round(parseFloat(m.liquidity) || 0),
-        yesPrice: prices[0] ?? 0.5,
-        noPrice: prices[1] ?? 0.5,
-        outcomeNames,
-        daysLeft,
-        score,
-        edge: edgeLabel(score),
-      };
-    });
+        return {
+          id: m.id,
+          question: m.question,
+          volume24h: Math.round(m.volume24hr || 0),
+          liquidity: Math.round(parseFloat(m.liquidity) || 0),
+          yesPrice,
+          noPrice: prices[1] ?? 0.5,
+          outcomeNames,
+          daysLeft,
+          score,
+          edge: edgeLabel(yesPrice),
+        };
+      })
+      // Filter out effectively-resolved markets and expired ones
+      .filter(m => m.yesPrice > 0.03 && m.yesPrice < 0.97 && m.daysLeft !== 0)
+      .slice(0, 20);
 
     res.json({ markets, fetchedAt: Date.now() });
   } catch (e) {
