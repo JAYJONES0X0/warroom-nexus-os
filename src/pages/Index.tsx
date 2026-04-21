@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TopBar } from "@/components/TopBar";
 import { SideBar } from "@/components/SideBar";
@@ -6,6 +7,7 @@ import { BottomTicker } from "@/components/BottomTicker";
 import { ThreeScene } from "@/components/ThreeScene";
 import { PlanetCard } from "@/components/PlanetCard";
 const Index = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(() => !sessionStorage.getItem("nexus_loaded"));
   const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
   const leftSidebarItems = [{
@@ -78,13 +80,28 @@ const Index = () => {
   }
   return <div className="relative w-full h-screen bg-black overflow-hidden">
       <ThreeScene onPlanetClick={handlePlanetClick} />
-      
+
       <TopBar />
       <SideBar side="left" items={leftSidebarItems} icon="📊" className="text-primary-foreground" />
       <SideBar side="right" items={rightSidebarItems} icon="⚡" />
       <BottomTicker />
 
       {planetsData.map(planet => <PlanetCard key={planet.name} name={planet.name} icon={planet.icon} isOpen={selectedPlanet === planet.name} onClose={handleCloseCard} />)}
+
+      {/* Mode switcher — below TopBar */}
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-1 p-1 rounded-xl"
+        style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(16px)" }}>
+        <div className="px-5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest"
+          style={{ background: "rgba(255,221,0,0.15)", color: "#ffdd00", border: "1px solid rgba(255,221,0,0.4)" }}>
+          WARROOM
+        </div>
+        <button
+          onClick={() => navigate("/polymarket")}
+          className="px-5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all"
+          style={{ background: "rgba(147,51,234,0.08)", color: "rgba(168,85,247,0.7)", border: "1px solid rgba(147,51,234,0.2)" }}>
+          POLYMARKET
+        </button>
+      </div>
 
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm text-primary/40 pointer-events-none text-center leading-relaxed animate-[fadeInOut_6s_ease-in-out_forwards]">
         🖱️ Drag to rotate • 🔍 Scroll to zoom • 🪐 Click planets to explore

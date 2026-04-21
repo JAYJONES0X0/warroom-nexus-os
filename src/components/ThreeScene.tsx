@@ -3,277 +3,265 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
 
-// Import photorealistic planet textures
-import nexusEarthTexture from "@/assets/textures/nexus-earth-realistic.jpg";
-import marketsTexture from "@/assets/textures/markets-realistic.jpg";
-import tradesTexture from "@/assets/textures/trades-realistic.jpg";
-import intelligenceTexture from "@/assets/textures/intelligence-realistic.jpg";
-import alertsTexture from "@/assets/textures/alerts-realistic.jpg";
-import settingsTexture from "@/assets/textures/settings-realistic.jpg";
-import journalTexture from "@/assets/textures/journal-realistic.jpg";
-import executionTexture from "@/assets/textures/execution-realistic.jpg";
-import analyticsTexture from "@/assets/textures/analytics-realistic.jpg";
-import historyTexture from "@/assets/textures/history-realistic.jpg";
-interface PlanetProps {
-  name: string;
-  icon: string;
-  distance: number;
-  angle: number;
-  color: string;
-  onClick: () => void;
-  onHover: (hovered: boolean) => void;
-}
-interface PlanetPropsExtended extends PlanetProps {
-  texture: string;
-  size: number;
-  glowColor: string;
-}
-const Planet = ({
-  name,
-  distance,
-  angle,
-  texture,
-  onClick,
-  onHover,
-  size,
-  glowColor
-}: PlanetPropsExtended) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
-  const planetTexture = useTexture(texture);
+import earthTex   from "@/assets/textures/nexus-earth-realistic.jpg";
+import jupiterTex from "@/assets/textures/jupiter.jpg";
+import saturnTex  from "@/assets/textures/saturn.jpg";
+import marsTex    from "@/assets/textures/mars.jpg";
+import venusTex   from "@/assets/textures/venus.jpg";
+import mercuryTex from "@/assets/textures/mercury.jpg";
+import neptuneTex from "@/assets/textures/neptune.jpg";
+import uranusTex  from "@/assets/textures/uranus.jpg";
+import moonTex    from "@/assets/textures/moon.jpg";
 
-  useFrame(state => {
-    if (meshRef.current && groupRef.current) {
-      meshRef.current.rotation.y += 0.003;
-      const t = state.clock.getElapsedTime() * 0.0005;
-      const currentAngle = angle + t * 30;
-      const angleRad = currentAngle * Math.PI / 180;
-      const x = Math.cos(angleRad) * distance;
-      const z = Math.sin(angleRad) * distance;
-      groupRef.current.position.x = x;
-      groupRef.current.position.z = z;
-    }
-  });
-
-  const initX = Math.cos(angle * Math.PI / 180) * distance;
-  const initZ = Math.sin(angle * Math.PI / 180) * distance;
-
-  return <group ref={groupRef} position={[initX, 0, initZ]}>
-      <mesh ref={meshRef} onClick={onClick}
-        onPointerOver={() => { setHovered(true); onHover(true); document.body.style.cursor = "pointer"; }}
-        onPointerOut={() => { setHovered(false); onHover(false); document.body.style.cursor = "default"; }}>
-        <sphereGeometry args={[size, 64, 64]} />
-        <meshStandardMaterial map={planetTexture} metalness={0.05} roughness={0.85}
-          emissive={new THREE.Color(glowColor)}
-          emissiveIntensity={hovered ? 0.4 : 0.08} />
-      </mesh>
-
-      {/* Planet name label — always visible, fixed screen-space size */}
-      <Html center position={[0, -(size + 1.6), 0]} zIndexRange={[100, 100]}>
-        <div style={{
-          color: '#ffffff',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          fontWeight: '900',
-          letterSpacing: '0.2em',
-          textTransform: 'uppercase',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          padding: '2px 7px',
-          borderRadius: '4px',
-          background: `${glowColor}25`,
-          border: `1px solid ${glowColor}50`,
-          textShadow: `0 0 10px ${glowColor}, 0 1px 3px rgba(0,0,0,1)`,
-          boxShadow: `0 0 10px ${glowColor}30`,
-          opacity: hovered ? 1 : 0,
-          transform: hovered ? 'translateY(0px)' : 'translateY(4px)',
-          transition: 'opacity 0.15s, transform 0.15s',
-        }}>
-          {name}
-        </div>
-      </Html>
-
-      <pointLight color={glowColor} intensity={hovered ? 2.5 : 1.0} distance={16} />
-    </group>;
-};
-const Starfield = () => {
-  const pointsRef = useRef<THREE.Points>(null);
-  const [positions, colors] = useMemo(() => {
-    const starCount = 15000;
-    const positions = new Float32Array(starCount * 3);
-    const colors = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount * 3; i += 3) {
-      // Place stars in a spherical shell far from center
-      const radius = 300 + Math.random() * 400; // Between 300 and 700 units away
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      positions[i] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i + 2] = radius * Math.cos(phi);
-      colors[i] = 1;
-      colors[i + 1] = 1;
-      colors[i + 2] = 1;
-    }
-    return [positions, colors];
-  }, []);
-  useFrame(() => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y += 0.00005;
-    }
-  });
-  return <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={positions.length / 3} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={colors.length / 3} array={colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={1.5} vertexColors transparent opacity={0.8} sizeAttenuation />
-    </points>;
-};
-const NexusEarth = () => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-  const texture = useTexture(nexusEarthTexture);
-  useFrame(state => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.001;
-    }
-    // Pulse the glow
-    if (glowRef.current) {
-      const pulse = Math.sin(state.clock.getElapsedTime() * 0.5) * 0.1 + 0.9;
-      glowRef.current.scale.setScalar(1.2 * pulse);
-    }
-  });
-  return <group>
-      {/* Photorealistic Nexus Earth */}
-      <mesh ref={meshRef}>
-        <sphereGeometry args={[8, 128, 128]} />
-        <meshStandardMaterial map={texture} metalness={0.05} roughness={0.9} />
-      </mesh>
-
-      {/* Central ambient light */}
-      <pointLight color="#ffffff" intensity={2} distance={80} />
-    </group>;
-};
-
-// Nebula background with fog particles
-const NebulaBackground = () => {
-  const pointsRef = useRef<THREE.Points>(null);
-  const [positions, colors] = useMemo(() => {
-    const particleCount = 5000;
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      // Scattered nebula particles
-      const radius = 200 + Math.random() * 300;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      positions[i] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i + 2] = radius * Math.cos(phi);
-
-      // Mix of purple, blue, and gold nebula colors
-      const colorChoice = Math.random();
-      if (colorChoice < 0.4) {
-        // Purple/magenta
-        colors[i] = 0.5 + Math.random() * 0.3;
-        colors[i + 1] = 0.2;
-        colors[i + 2] = 0.8;
-      } else if (colorChoice < 0.7) {
-        // Cyan/blue
-        colors[i] = 0.2;
-        colors[i + 1] = 0.5 + Math.random() * 0.5;
-        colors[i + 2] = 1;
-      } else {
-        // Gold/orange
-        colors[i] = 1;
-        colors[i + 1] = 0.6 + Math.random() * 0.3;
-        colors[i + 2] = 0.2;
-      }
-    }
-    return [positions, colors];
-  }, []);
-  useFrame(() => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y += 0.0001;
-      pointsRef.current.rotation.x += 0.00005;
-    }
-  });
-  return <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={positions.length / 3} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={colors.length / 3} array={colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={2.5} vertexColors transparent opacity={0.6} sizeAttenuation blending={THREE.AdditiveBlending} />
-    </points>;
-};
-const OrbitRing = ({ radius, opacity = 0.15 }: { radius: number; opacity?: number }) => {
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i <= 128; i++) {
-    const angle = (i / 128) * Math.PI * 2;
-    points.push(new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius));
+// ─── Round-star shaders ───────────────────────────────────────────────────────
+// Uses gl_PointCoord to discard outside a circle — works on every GPU.
+const STAR_VERT = `
+  attribute vec3 aColor;
+  attribute float aSize;
+  varying vec3 vColor;
+  void main() {
+    vColor = aColor;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (280.0 / -mv.z);
+    gl_Position  = projectionMatrix * mv;
   }
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+`;
+const STAR_FRAG = `
+  varying vec3 vColor;
+  void main() {
+    vec2  uv = gl_PointCoord - vec2(0.5);
+    float r2 = dot(uv, uv);
+    if (r2 > 0.25) discard;
+    float a = 1.0 - smoothstep(0.05, 0.25, r2);
+    gl_FragColor = vec4(vColor, a);
+  }
+`;
+
+// ─── Realistic Starfield ─────────────────────────────────────────────────────
+const Starfield = () => {
+  const ref = useRef<THREE.Points>(null);
+
+  const obj = useMemo(() => {
+    const n   = 20000;
+    const pos = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    const sz  = new Float32Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const r     = 350 + Math.random() * 600;
+      const theta = Math.random() * Math.PI * 2;
+      const phi   = Math.acos(2 * Math.random() - 1);
+      pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+      pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i*3+2] = r * Math.cos(phi);
+
+      const rnd = Math.random();
+      // M-class (red-orange dwarfs) — 50%
+      if      (rnd < 0.50) { col[i*3]=1.0; col[i*3+1]=0.60+Math.random()*0.15; col[i*3+2]=0.40; sz[i]=1.2+Math.random()*0.6; }
+      // K-class (orange) — 20%
+      else if (rnd < 0.70) { col[i*3]=1.0; col[i*3+1]=0.78+Math.random()*0.10; col[i*3+2]=0.50; sz[i]=1.4+Math.random()*0.8; }
+      // G-class (yellow, sun-like) — 15%
+      else if (rnd < 0.85) { col[i*3]=1.0; col[i*3+1]=0.96; col[i*3+2]=0.72; sz[i]=1.5+Math.random()*0.9; }
+      // F-class (yellow-white) — 7%
+      else if (rnd < 0.92) { col[i*3]=1.0; col[i*3+1]=1.0; col[i*3+2]=0.88; sz[i]=1.6+Math.random()*1.0; }
+      // A-class (white) — 5%
+      else if (rnd < 0.97) { col[i*3]=0.95; col[i*3+1]=0.97; col[i*3+2]=1.0; sz[i]=1.7+Math.random()*1.2; }
+      // O/B-class (hot blue giants) — 3%, rarest + brightest
+      else                  { col[i*3]=0.60; col[i*3+1]=0.75; col[i*3+2]=1.0; sz[i]=2.4+Math.random()*2.0; }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("aColor",   new THREE.BufferAttribute(col, 3));
+    geo.setAttribute("aSize",    new THREE.BufferAttribute(sz,  1));
+
+    const mat = new THREE.ShaderMaterial({
+      vertexShader:   STAR_VERT,
+      fragmentShader: STAR_FRAG,
+      transparent:    true,
+      depthWrite:     false,
+      blending:       THREE.AdditiveBlending,
+    });
+
+    return new THREE.Points(geo, mat);
+  }, []);
+
+  useFrame(() => { if (ref.current) ref.current.rotation.y += 0.00003; });
+
+  return <primitive ref={ref} object={obj} />;
+};
+
+// ─── Milky Way band (also round sprites via shader) ──────────────────────────
+const MilkyWay = () => {
+  const obj = useMemo(() => {
+    const n   = 5000;
+    const pos = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    const sz  = new Float32Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const r     = 260 + Math.random() * 200;
+      const y     = (Math.random() - 0.5) * 50;
+      pos[i*3]=r*Math.cos(theta); pos[i*3+1]=y; pos[i*3+2]=r*Math.sin(theta);
+      const t=Math.random();
+      col[i*3]=0.75+t*0.2; col[i*3+1]=0.80+t*0.15; col[i*3+2]=0.95;
+      sz[i] = 0.8 + Math.random() * 0.8;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("aColor",   new THREE.BufferAttribute(col, 3));
+    geo.setAttribute("aSize",    new THREE.BufferAttribute(sz,  1));
+
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: STAR_VERT, fragmentShader: STAR_FRAG,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const pts = new THREE.Points(geo, mat);
+    (pts.material as THREE.ShaderMaterial).uniforms; // touch to keep ref
+    return pts;
+  }, []);
+
+  return <primitive object={obj} />;
+};
+
+// ─── Saturn rings ────────────────────────────────────────────────────────────
+const SaturnRings = ({ r }: { r: number }) => {
+  const ref = useRef<THREE.Mesh>(null);
+  const geo = useMemo(() => {
+    const g = new THREE.RingGeometry(r * 1.3, r * 2.2, 128);
+    const pos = g.attributes.position as THREE.BufferAttribute;
+    const uv  = g.attributes.uv  as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      uv.setXY(i, (Math.sqrt(x*x+z*z) - r*1.3) / (r*0.9), 0);
+    }
+    return g;
+  }, [r]);
+  useFrame(() => { if (ref.current) ref.current.rotation.y += 0.001; });
   return (
-    <line geometry={geometry}>
-      <lineBasicMaterial color="#d4a574" transparent opacity={opacity} />
-    </line>
+    <mesh ref={ref} geometry={geo} rotation={[Math.PI*0.42, 0.1, 0.3]}>
+      <meshBasicMaterial color={new THREE.Color(0.88, 0.74, 0.54)} side={THREE.DoubleSide} transparent opacity={0.50} depthWrite={false} />
+    </mesh>
   );
 };
 
-interface ThreeSceneProps {
-  onPlanetClick: (name: string) => void;
+// ─── Atmosphere glow ─────────────────────────────────────────────────────────
+const Atmo = ({ radius, color }: { radius: number; color: string }) => (
+  <mesh>
+    <sphereGeometry args={[radius * 1.15, 32, 32]} />
+    <meshBasicMaterial color={new THREE.Color(color)} transparent opacity={0.07} side={THREE.BackSide} depthWrite={false} />
+  </mesh>
+);
+
+// ─── Planet ──────────────────────────────────────────────────────────────────
+interface PlanetProps {
+  name: string; texture: string; distance: number; angle: number;
+  size: number; glowColor: string; rings?: boolean; orbitSpeed: number;
+  onClick: () => void;
 }
-export const ThreeScene = ({
-  onPlanetClick
-}: ThreeSceneProps) => {
-  // Inner ring — core trading planets (distance 18)
-  // Outer ring — support planets (distance 30)
-  const planetsData = [
-    { name: "Markets",     texture: marketsTexture,     icon: "📊", distance: 18, angle: 0,   size: 3.0, glowColor: "#ff4444" },
-    { name: "Intelligence",texture: intelligenceTexture, icon: "🧠", distance: 18, angle: 90,  size: 3.2, glowColor: "#aa44ff" },
-    { name: "Execution",   texture: executionTexture,   icon: "⚡", distance: 18, angle: 180, size: 2.9, glowColor: "#ffdd00" },
-    { name: "Analytics",   texture: analyticsTexture,   icon: "📈", distance: 18, angle: 270, size: 3.0, glowColor: "#0099ff" },
-    { name: "Alerts",      texture: alertsTexture,      icon: "🔔", distance: 30, angle: 0,   size: 2.6, glowColor: "#ff8800" },
-    { name: "Journal",     texture: journalTexture,     icon: "📝", distance: 30, angle: 60,  size: 2.6, glowColor: "#c0c0c0" },
-    { name: "Reports",     texture: historyTexture,     icon: "📋", distance: 30, angle: 120, size: 2.4, glowColor: "#44ffaa" },
-    { name: "Trades",      texture: tradesTexture,      icon: "💹", distance: 30, angle: 180, size: 2.7, glowColor: "#00ddff" },
-    { name: "History",     texture: historyTexture,     icon: "🕐", distance: 30, angle: 240, size: 2.4, glowColor: "#ff9944" },
-    { name: "Settings",    texture: settingsTexture,    icon: "⚙️", distance: 30, angle: 300, size: 2.3, glowColor: "#00ff88" },
+
+const Planet = ({ name, texture, distance, angle, size, glowColor, rings, orbitSpeed, onClick }: PlanetProps) => {
+  const meshRef  = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const [hovered, setHovered] = useState(false);
+  const tex = useTexture(texture);
+
+  useFrame(state => {
+    if (!meshRef.current || !groupRef.current) return;
+    meshRef.current.rotation.y += 0.004;
+    const t   = state.clock.getElapsedTime() * orbitSpeed;
+    const rad = angle * Math.PI / 180 + t;
+    groupRef.current.position.x = Math.cos(rad) * distance;
+    groupRef.current.position.z = Math.sin(rad) * distance;
+  });
+
+  return (
+    <group ref={groupRef} position={[Math.cos(angle*Math.PI/180)*distance, 0, Math.sin(angle*Math.PI/180)*distance]}>
+      <mesh ref={meshRef} onClick={onClick}
+        onPointerOver={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
+        onPointerOut={()  => { setHovered(false); document.body.style.cursor = "default"; }}>
+        <sphereGeometry args={[size, 96, 96]} />
+        <meshStandardMaterial map={tex} metalness={0.05} roughness={0.82}
+          emissive={new THREE.Color(glowColor)} emissiveIntensity={hovered ? 0.32 : 0.05} />
+      </mesh>
+      <Atmo radius={size} color={glowColor} />
+      {rings && <SaturnRings r={size} />}
+      <Html center position={[0, -(size+1.8), 0]} zIndexRange={[100,100]}>
+        <div style={{
+          color:"#fff", fontSize:"11px", fontFamily:"monospace", fontWeight:"900",
+          letterSpacing:"0.2em", textTransform:"uppercase", whiteSpace:"nowrap",
+          pointerEvents:"none", userSelect:"none", padding:"2px 7px", borderRadius:"4px",
+          background:`${glowColor}28`, border:`1px solid ${glowColor}55`,
+          textShadow:`0 0 10px ${glowColor}, 0 1px 3px #000`,
+          opacity: hovered ? 1 : 0, transform: hovered ? "translateY(0)" : "translateY(5px)",
+          transition: "opacity 0.15s, transform 0.15s",
+        }}>{name}</div>
+      </Html>
+      <pointLight color={glowColor} intensity={hovered ? 2.8 : 1.0} distance={18} />
+    </group>
+  );
+};
+
+// ─── Central Nexus Earth ─────────────────────────────────────────────────────
+const NexusEarth = () => {
+  const ref = useRef<THREE.Mesh>(null);
+  const tex = useTexture(earthTex);
+  useFrame(() => { if (ref.current) ref.current.rotation.y += 0.001; });
+  return (
+    <group>
+      <mesh ref={ref}><sphereGeometry args={[8,128,128]} /><meshStandardMaterial map={tex} metalness={0.05} roughness={0.9} /></mesh>
+      <mesh><sphereGeometry args={[8.65,48,48]} /><meshBasicMaterial color={new THREE.Color(0.25,0.55,1.0)} transparent opacity={0.055} side={THREE.BackSide} depthWrite={false} /></mesh>
+      <pointLight color="#fff5e0" intensity={2.2} distance={90} />
+    </group>
+  );
+};
+
+// ─── Orbit ring ──────────────────────────────────────────────────────────────
+const OrbitRing = ({ radius, opacity=0.12 }: { radius:number; opacity?:number }) => {
+  const pts = useMemo(() => {
+    const p: THREE.Vector3[] = [];
+    for (let i=0;i<=192;i++) { const a=i/192*Math.PI*2; p.push(new THREE.Vector3(Math.cos(a)*radius,0,Math.sin(a)*radius)); }
+    return new THREE.BufferGeometry().setFromPoints(p);
+  }, [radius]);
+  return <line geometry={pts}><lineBasicMaterial color="#8899cc" transparent opacity={opacity} /></line>;
+};
+
+// ─── Main scene ───────────────────────────────────────────────────────────────
+interface ThreeSceneProps { onPlanetClick: (name:string)=>void; }
+
+export const ThreeScene = ({ onPlanetClick }: ThreeSceneProps) => {
+  const planets = [
+    { name:"Markets",      texture:jupiterTex, distance:18, angle:0,   size:3.2, glowColor:"#ff4444", orbitSpeed:0.00045 },
+    { name:"Intelligence", texture:neptuneTex, distance:18, angle:90,  size:3.0, glowColor:"#aa44ff", orbitSpeed:0.00038 },
+    { name:"Execution",    texture:marsTex,    distance:18, angle:180, size:2.8, glowColor:"#ffdd00", orbitSpeed:0.00052 },
+    { name:"Analytics",    texture:saturnTex,  distance:18, angle:270, size:3.1, glowColor:"#0099ff", rings:true, orbitSpeed:0.00035 },
+    { name:"Alerts",       texture:venusTex,   distance:30, angle:0,   size:2.5, glowColor:"#ff8800", orbitSpeed:0.00028 },
+    { name:"Journal",      texture:earthTex,   distance:30, angle:60,  size:2.6, glowColor:"#c0c0c0", orbitSpeed:0.00022 },
+    { name:"Reports",      texture:mercuryTex, distance:30, angle:120, size:2.3, glowColor:"#44ffaa", orbitSpeed:0.00031 },
+    { name:"Trades",       texture:uranusTex,  distance:30, angle:180, size:2.7, glowColor:"#00ddff", orbitSpeed:0.00019 },
+    { name:"History",      texture:moonTex,    distance:30, angle:240, size:2.2, glowColor:"#ff9944", orbitSpeed:0.00025 },
+    { name:"Settings",     texture:mercuryTex, distance:30, angle:300, size:2.2, glowColor:"#00ff88", orbitSpeed:0.00017 },
   ];
-  return <div className="fixed inset-0 z-[1]">
-      <Canvas camera={{
-      position: [0, 22, 68],
-      fov: 65
-    }} className="text-secondary-foreground">
-        {/* Ambient and key lighting - bright for HD texture visibility */}
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[50, 50, 50]} intensity={2} color="#ffffff" />
-        <directionalLight position={[-50, -50, -50]} intensity={1} color="#ffffff" />
-        <pointLight position={[0, 0, 0]} intensity={5} distance={300} color="#ffffff" />
-        <pointLight position={[50, 40, 50]} intensity={2} distance={250} color="#ffffff" />
-        <pointLight position={[-50, -40, -50]} intensity={2} distance={250} color="#ffffff" />
-        <pointLight position={[0, 60, 0]} intensity={1.5} distance={200} color="#ffffff" />
-        
-        {/* Fog for atmospheric depth */}
-        <fog attach="fog" args={['#000511', 50, 500]} />
 
-        {/* Starfield and nebula background */}
+  return (
+    <div className="fixed inset-0 z-[1]">
+      <Canvas camera={{ position:[0,22,68], fov:65 }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[60,40,60]} intensity={2.2} color="#fff8e8" />
+        <directionalLight position={[-40,-30,-40]} intensity={0.35} color="#8899ff" />
+        <pointLight position={[0,0,0]} intensity={4.5} distance={320} color="#fff5e0" />
+        <fog attach="fog" args={["#000511",60,560]} />
         <Starfield />
-        <NebulaBackground />
-
-        {/* Central Nexus Earth */}
+        <MilkyWay />
         <NexusEarth />
-
-        {/* Orbit rings */}
-        <OrbitRing radius={18} opacity={0.18} />
-        <OrbitRing radius={30} opacity={0.10} />
-
-        {/* Orbiting planets */}
-        {planetsData.map(planet => <Planet key={planet.name} name={planet.name} icon={planet.icon} distance={planet.distance} angle={planet.angle} texture={planet.texture} size={planet.size} glowColor={planet.glowColor} color="#ffffff" onClick={() => onPlanetClick(planet.name)} onHover={() => {}} />)}
-
-        <OrbitControls enableDamping dampingFactor={0.05} enableZoom enablePan={false} minDistance={40} maxDistance={140} autoRotate autoRotateSpeed={0.12} />
+        <OrbitRing radius={18} opacity={0.16} />
+        <OrbitRing radius={30} opacity={0.09} />
+        {planets.map(p => <Planet key={p.name} {...p} onClick={() => onPlanetClick(p.name)} />)}
+        <OrbitControls enableDamping dampingFactor={0.05} enableZoom enablePan={false}
+          minDistance={40} maxDistance={145} autoRotate autoRotateSpeed={0.10} />
       </Canvas>
-    </div>;
+    </div>
+  );
 };

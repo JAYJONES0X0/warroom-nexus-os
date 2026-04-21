@@ -13,6 +13,7 @@ import ReportsScreen from "./pages/ReportsScreen";
 import JournalScreen from "./pages/JournalScreen";
 import AlertsScreen from "./pages/AlertsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
+import PolymarketScreen from "./pages/PolymarketScreen";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/journal" element={<JournalScreen />} />
           <Route path="/alerts" element={<AlertsScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/polymarket" element={<PolymarketScreen />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

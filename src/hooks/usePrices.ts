@@ -12,20 +12,29 @@ export interface PricesState {
   fetchedAt: string | null;
   loading: boolean;
   error: string | null;
+  source: 'twelvedata' | 'yahoo' | 'error' | null;
 }
 
-const REFRESH_MS = 30_000;
+const REFRESH_MS = 5_000; // 5s — 6× faster than before
 
 export function usePrices(): PricesState {
-  const [state, setState] = useState<PricesState>({ prices: {}, fetchedAt: null, loading: true, error: null });
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [state, setState] = useState<PricesState>({
+    prices: {}, fetchedAt: null, loading: true, error: null, source: null,
+  });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchPrices = async () => {
     try {
       const res = await fetch('/api/prices');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setState({ prices: data.prices ?? {}, fetchedAt: data.fetchedAt, loading: false, error: null });
+      setState({
+        prices:    data.prices ?? {},
+        fetchedAt: data.fetchedAt,
+        loading:   false,
+        error:     null,
+        source:    data.source ?? null,
+      });
     } catch (e) {
       setState(prev => ({ ...prev, loading: false, error: String(e) }));
     }

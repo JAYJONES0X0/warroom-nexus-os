@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { NexusTerminal } from "@/components/NexusTerminal";
+import { MacroCalendar } from "@/components/MacroCalendar";
 import { usePrices } from "@/hooks/usePrices";
 import intelligenceTexture from "@/assets/textures/intelligence-realistic.jpg";
 
@@ -22,7 +23,7 @@ function getSession() {
   return "Dead Zone";
 }
 
-const TABS = ["Patterns", "Predictions", "Sentiment", "ARCHON"];
+const TABS = ["Patterns", "Predictions", "Sentiment", "ARCHON", "Macro"];
 
 const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
   const [selectedPair, setSelectedPair] = useState("EURUSD");
@@ -235,6 +236,15 @@ const IntelligenceScreen = () => {
           </div>
         )}
         {tab === "ARCHON" && <ArchonTab prices={prices} />}
+        {tab === "Macro" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-mono">Economic Calendar</div>
+              <div className="text-[9px] text-white/15 font-mono">ForexFactory · next 48h · High + Medium impact</div>
+            </div>
+            <MacroCalendar />
+          </div>
+        )}
       </div>
 
       {/* Terminal */}
