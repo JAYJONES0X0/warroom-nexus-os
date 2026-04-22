@@ -51,28 +51,41 @@ const MarketRow = ({
           style={{ color: selected ? "rgba(255,255,255,0.85)" : undefined }}>
           {market.question}
         </div>
-        <div className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
-          style={{ color: ec, background: `${ec}18`, border: `1px solid ${ec}30` }}>
-          {edgeShort(market.edge)}
+        <div className="shrink-0 flex items-center gap-1.5">
+          <div className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
+            style={{ color: ec, background: `${ec}18`, border: `1px solid ${ec}30` }}>
+            {edgeShort(market.edge)}
+          </div>
+          <div className="text-[8px] text-white/20 font-mono">
+            Score: {Math.round(market.score)}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] text-white/30 font-mono">YES</span>
-          <span className="text-[10px] font-black text-emerald-400">{(market.yesPrice * 100).toFixed(0)}¢</span>
+          <span className="text-[10px] font-black text-emerald-400 font-mono">{(market.yesPrice * 100).toFixed(1)}¢</span>
           <span className="text-white/15 text-[8px]">·</span>
           <span className="text-[9px] text-white/30 font-mono">NO</span>
-          <span className="text-[10px] font-black text-red-400">{(market.noPrice * 100).toFixed(0)}¢</span>
+          <span className="text-[10px] font-black text-red-400 font-mono">{(market.noPrice * 100).toFixed(1)}¢</span>
         </div>
-        <div className="ml-auto flex items-center gap-1">
-          <div className="w-16 h-1 rounded-full bg-white/[0.06] overflow-hidden">
-            <div className="h-full rounded-full bg-violet-500/40" style={{ width: `${bar}%` }} />
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] text-white/25 font-mono">Vol:</span>
+            <span className="text-[9px] text-white/60 font-mono">
+              ${market.volume24h >= 1_000_000
+                ? `${(market.volume24h / 1_000_000).toFixed(2)}M`
+                : `${(market.volume24h / 1000).toFixed(0)}K`}
+            </span>
           </div>
-          <span className="text-[8px] text-white/25 font-mono">
-            ${market.volume24h >= 1_000_000
-              ? `${(market.volume24h / 1_000_000).toFixed(1)}M`
-              : `${(market.volume24h / 1000).toFixed(0)}K`}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] text-white/25 font-mono">Liq:</span>
+            <span className="text-[9px] text-white/60 font-mono">
+              ${market.liquidity >= 1_000_000
+                ? `${(market.liquidity / 1_000_000).toFixed(2)}M`
+                : `${(market.liquidity / 1000).toFixed(0)}K`}
+            </span>
+          </div>
         </div>
       </div>
       {market.daysLeft !== null && (
@@ -199,28 +212,29 @@ const MarketDetail = ({ market }: { market: PolyMarket }) => {
           </div>
         </div>
 
-        {/* Score + bars */}
-        <div className="flex items-center gap-6 mb-5">
+        {/* Score + Breakdown */}
+        <div className="flex flex-col items-center gap-4 mb-5">
           <div className="text-center">
-            <div className="text-5xl font-black tabular-nums"
-              style={{ color: ec, textShadow: `0 0 25px ${ec}50` }}>
+            <div className="text-6xl font-black tabular-nums leading-none"
+              style={{ color: ec, textShadow: `0 0 30px ${ec}60` }}>
               {composite}
             </div>
-            <div className="text-[9px] text-white/25 font-mono mt-0.5">edge score / 100</div>
+            <div className="text-[10px] text-white/30 font-mono mt-1">COMPOSITE EDGE SCORE / 100</div>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="w-full space-y-2">
+            <div className="text-[9px] text-white/40 uppercase font-mono mb-1">Signal Breakdown</div>
             {[
-              ["Volume",    Math.min(100, (market.volume24h / 1_000_000) * 60 + 20)],
-              ["Liquidity", Math.min(100, (market.liquidity  / 500_000)  * 50 + 15)],
-              ["Price edge", Math.abs(market.yesPrice - 0.5) < 0.38 ? Math.abs(market.yesPrice - 0.5) * 200 : 10],
-              ["Time risk", market.daysLeft ? Math.min(100, (30 / market.daysLeft) * 60 + 20) : 50],
+              ["Volume Influence",    Math.min(100, (market.volume24h / 1_000_000) * 60 + 20)],
+              ["Liquidity Strength",  Math.min(100, (market.liquidity  / 500_000)  * 50 + 15)],
+              ["Price Discrepancy", Math.abs(market.yesPrice - 0.5) < 0.38 ? Math.abs(market.yesPrice - 0.5) * 200 : 10],
+              ["Time Horizon Risk", market.daysLeft ? Math.min(100, (30 / market.daysLeft) * 60 + 20) : 50],
             ].map(([label, val]) => (
               <div key={label as string}>
                 <div className="flex justify-between text-[8px] font-mono mb-0.5">
                   <span className="text-white/30 uppercase">{label}</span>
-                  <span className="text-white/40">{Math.round(val as number)}</span>
+                  <span className="text-white/40">{Math.round(val as number)}%</span>
                 </div>
-                <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all"
                     style={{ width: `${Math.round(val as number)}%`, background: ec, opacity: 0.7 }} />
                 </div>
@@ -230,32 +244,37 @@ const MarketDetail = ({ market }: { market: PolyMarket }) => {
         </div>
 
         {/* Kelly sizing — only show relevant side */}
-        <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+        <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl mt-4">
           {market.edge === "NEUTRAL" ? (
-            <div className="text-center text-[10px] text-white/25 font-mono">
-              No clear edge — stand aside or wait for price movement
+            <div className="text-center text-[10px] text-white/25 font-mono leading-relaxed">
+              No clear edge detected. Consider standing aside or awaiting further price action.
             </div>
           ) : (
-            <div className="flex items-center gap-4">
-              <div className="text-center flex-1">
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-center">
                 <div className="text-[9px] text-white/30 font-mono uppercase mb-1">
-                  BET {betSide} — Kelly Size
+                  OPTIMAL BET SIDE & KELLY SIZE
                 </div>
-                <div className="text-2xl font-black" style={{ color: ec }}>
-                  {betKelly.toFixed(1)}%
+                <div className="flex items-baseline gap-2 justify-center">
+                  <span className="text-3xl font-black" style={{ color: ec }}>
+                    {betKelly.toFixed(1)}%
+                  </span>
+                  <span className="text-xl font-bold" style={{ color: ec }}>
+                    {betSide}
+                  </span>
                 </div>
-                <div className="text-[8px] text-white/20 font-mono">of bankroll (half-Kelly)</div>
+                <div className="text-[8px] text-white/20 font-mono">of bankroll (conservative half-Kelly)</div>
               </div>
-              <div className="flex-1 text-[9px] text-white/30 font-mono leading-relaxed border-l border-white/[0.06] pl-4">
+              <div className="text-[9px] text-white/30 font-mono leading-relaxed text-center border-t border-white/[0.06] pt-3 w-full">
                 {isYes
-                  ? `YES at ${(market.yesPrice * 100).toFixed(0)}¢ is underpriced. Crowd overweights NO. Edge on the upside.`
-                  : `NO at ${(market.noPrice * 100).toFixed(0)}¢ is underpriced. Crowd overweights YES. Edge fading the favourite.`}
+                  ? `Thesis: YES at ${(market.yesPrice * 100).toFixed(0)}¢ appears undervalued. The crowd is likely over-weighting the NO outcome. Significant edge on the upside.`
+                  : `Thesis: NO at ${(market.noPrice * 100).toFixed(0)}¢ appears undervalued. The crowd is likely over-weighting the YES outcome. Strong edge fading the perceived favorite.`}
               </div>
             </div>
           )}
         </div>
-        <div className="mt-2 text-[9px] text-white/15 font-mono text-center">
-          True probability estimated conservatively — verify thesis independently
+        <div className="mt-3 text-[9px] text-white/15 font-mono text-center">
+          All probabilities are conservatively estimated. Independent thesis verification is crucial.
         </div>
       </div>
 

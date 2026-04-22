@@ -82,12 +82,13 @@ export const ScreenAgent = ({ agentId, agentRole, glowColor, systemContext, auto
     setStatus("ready");
   };
 
-  // Auto-run once when prices load
+  // Auto-run once when prices load or immediately if we have prices
   useEffect(() => {
-    if (didAutoRun.current || Object.keys(prices).length === 0) return;
+    if (didAutoRun.current) return;
     didAutoRun.current = true;
+    // Call immediately - don't wait for prices if we want faster initialization
     call(autoPrompt);
-  }, [prices]);
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
