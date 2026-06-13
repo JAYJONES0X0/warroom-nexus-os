@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores } from "@/hooks/useEXAScores";
+import { useKeyLevels } from "@/hooks/useKeyLevels";
 import { ASSET_BRAIN } from "@/lib/warroomBrain";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroCalendar } from "@/components/MacroCalendar";
@@ -125,6 +126,8 @@ const MarketsScreen = () => {
 
   const tick = usePriceTick(selected);   // real-time WS tick (selected pair)
   const exa  = useEXAScores(selected);
+  const { levels } = useKeyLevels();
+  const lv = levels[selected];
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 1000);
@@ -464,6 +467,27 @@ const MarketsScreen = () => {
                 })()}
                 <div className="text-[8px] text-white/25 font-mono mt-1.5 leading-tight">{ASSET_BRAIN[selected]?.edge}</div>
               </div>
+
+              {/* Real swing levels — PDH/PWH resistance (red above) · PDL/PWL support (green below) */}
+              {lv && (
+                <div className="mb-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[8px] uppercase tracking-[0.2em] text-white/30 mb-1.5">Key Levels · swing liquidity</div>
+                  <div className="flex flex-wrap gap-1">
+                    {([["PWH", lv.pwh], ["PDH", lv.pdh], ["PDL", lv.pdl], ["PWL", lv.pwl]] as const).map(([lab, val]) => {
+                      const above = livePrice ? val > livePrice : false;
+                      const dist = livePrice ? Math.abs(val - livePrice) / livePrice * 100 : 0;
+                      const col = above ? "#ef4444" : "#10b981";
+                      return (
+                        <div key={lab} className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+                          style={{ background: `${col}12`, color: col, border: `1px solid ${col}25` }}
+                          title={`${lab} ${val.toFixed(asset.dec)} · ${dist.toFixed(2)}% ${above ? "above" : "below"} price`}>
+                          {lab} {val.toFixed(asset.dec)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={async () => {
