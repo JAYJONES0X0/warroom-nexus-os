@@ -15,14 +15,24 @@ export function useKeyLevels(): { levels: Record<string, KeyLevels>; loading: bo
 
   useEffect(() => {
     let alive = true;
+    let slow: ReturnType<typeof setInterval> | null = null;
     const load = () =>
       fetch("/api/levels")
         .then((r) => r.json())
-        .then((d) => { if (alive) { setLevels(d.levels ?? {}); setLoading(false); } })
+        .then((d) => {
+          if (!alive) return;
+          const lv = d.levels ?? {};
+          setLevels(lv);
+          setLoading(false);
+          // Once we actually have data (cold start may return empty/time out),
+          // drop the fast retry and settle into a slow 30-min refresh.
+          if (Object.keys(lv).length && !slow) slow = setInterval(load, 30 * 60_000);
+        })
         .catch(() => { if (alive) setLoading(false); });
     load();
-    const id = setInterval(load, 30 * 60_000);
-    return () => { alive = false; clearInterval(id); };
+    // Retry every 8s until the first successful, non-empty load survives cold starts.
+    const fast = setInterval(() => { if (!slow) load(); }, 8_000);
+    return () => { alive = false; clearInterval(fast); if (slow) clearInterval(slow); };
   }, []);
 
   return { levels, loading };
