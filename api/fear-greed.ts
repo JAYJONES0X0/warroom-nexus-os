@@ -35,12 +35,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     if (data) {
       res.json(data);
     } else {
-      // Fallback to mock data
-      res.json({
-        value: 50 + Math.floor(Math.random() * 30) - 15,
-        classification: 'Neutral',
-        timestamp: Date.now(),
-      });
+      // Source unavailable → report it instead of inventing a sentiment value.
+      // The UI treats non-200 as "no reading" rather than showing a fake one.
+      res.status(502).json({ error: 'fear/greed source unavailable' });
     }
   } catch (e) {
     res.status(500).json({ 

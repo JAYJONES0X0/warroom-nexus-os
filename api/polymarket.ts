@@ -10,29 +10,51 @@ interface GammaMarket {
   endDate: string;
 }
 
-function scoreMarket(m: GammaMarket): number {
+interface MarketScore { score: number; rationale: string; arb: boolean; }
+
+// Opportunity-quality score from real, observable market structure.
+// This grades *tradeability* (can you get filled, is price still discovering,
+// is the timing sane) — NOT a directional probability call.
+function scoreMarket(m: GammaMarket, daysLeft: number | null): MarketScore {
   const vol = m.volume24hr || 0;
   const liq = parseFloat(m.liquidity) || 0;
   const prices = JSON.parse(m.outcomePrices || '["0.5","0.5"]').map(Number);
   const yesPrice = prices[0] ?? 0.5;
+  const sum = prices.reduce((s: number, p: number) => s + p, 0);
 
-  // Volume score (log scale, max at $10M+)
-  const volScore = Math.min(40, Math.round((Math.log10(Math.max(1, vol)) / 7) * 40));
+  // Fillable liquidity — the gate on any real position. log scale, $1M+ ≈ full marks.
+  const liqScore = Math.min(30, Math.round((Math.log10(Math.max(1, liq)) / 6) * 30));
 
-  // Liquidity depth score
-  const liqScore = Math.min(25, Math.round((Math.log10(Math.max(1, liq)) / 7) * 25));
+  // Fresh volume — active price discovery means information is still flowing in.
+  const volScore = Math.min(25, Math.round((Math.log10(Math.max(1, vol)) / 6.5) * 25));
 
-  // Edge zone: markets near 20-35% or 65-80% YES have residual uncertainty = edge
-  const edgeScore = (yesPrice >= 0.18 && yesPrice <= 0.38) || (yesPrice >= 0.62 && yesPrice <= 0.82)
-    ? 25
-    : yesPrice >= 0.38 && yesPrice <= 0.62
-    ? 15
-    : 5;
+  // Contestedness — peaks at a 50/50 toss-up (genuine uncertainty = where an
+  // information edge actually pays); near-resolved markets have nothing left to win.
+  const contested = 1 - Math.abs(yesPrice - 0.5) * 2;          // 0..1
+  const contestScore = Math.round(contested * 25);
 
-  // Volume spike bonus (high 24h vol = fresh institutional activity)
-  const spikeBonus = vol > 1_000_000 ? 10 : vol > 200_000 ? 5 : 0;
+  // Timing fit — too far out locks capital for nothing; <1 day is resolution noise.
+  // Sweet spot ≈ 3–45 days.
+  const d = daysLeft ?? 30;
+  const timeScore = d < 1 ? 4 : d <= 45 ? 15 : d <= 120 ? 9 : 4;
 
-  return Math.min(100, volScore + liqScore + edgeScore + spikeBonus);
+  // Real arbitrage: binary outcomes priced below $1.00 in aggregate = free spread.
+  const arb = sum > 0 && sum < 0.985;
+  const arbBonus = arb ? 8 : 0;
+
+  const score = Math.min(100, liqScore + volScore + contestScore + timeScore + arbBonus);
+
+  // Rationale cites the dominant driver so the operator sees *why* it ranks.
+  const drivers: [string, number][] = [
+    [`$${(liq / 1000).toFixed(0)}K liquidity`, liqScore],
+    [`$${(vol / 1000).toFixed(0)}K 24h volume`, volScore],
+    [contested > 0.6 ? 'toss-up — live discovery' : 'leaning resolved', contestScore],
+    [`${d}d to resolve`, timeScore],
+  ];
+  drivers.sort((a, b) => b[1] - a[1]);
+  const rationale = (arb ? 'ARB spread + ' : '') + drivers.slice(0, 2).map(x => x[0]).join(', ');
+
+  return { score, rationale, arb };
 }
 
 function edgeLabel(yesPrice: number): string {
@@ -63,10 +85,10 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         const prices = JSON.parse(m.outcomePrices || '["0.5","0.5"]').map(Number);
         const outcomeNames = JSON.parse(m.outcomes || '["Yes","No"]');
         const yesPrice = prices[0] ?? 0.5;
-        const score = scoreMarket(m);
         const daysLeft = m.endDate
           ? Math.max(0, Math.ceil((new Date(m.endDate).getTime() - Date.now()) / 86400000))
           : null;
+        const { score, rationale, arb } = scoreMarket(m, daysLeft);
 
         return {
           id: m.id,
@@ -78,6 +100,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           outcomeNames,
           daysLeft,
           score,
+          rationale,
+          arb,
           edge: edgeLabel(yesPrice),
         };
       })

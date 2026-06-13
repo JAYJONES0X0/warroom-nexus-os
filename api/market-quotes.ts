@@ -26,16 +26,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   try {
     if (!FINNHUB_KEY) {
-      // Return mock data if no API key
-      const mockQuotes: MarketQuote[] = INDICES.map(idx => ({
-        symbol: idx.symbol,
-        name: idx.name,
-        price: 100 + Math.random() * 100,
-        change: (Math.random() - 0.5) * 5,
-        changePercent: (Math.random() - 0.5) * 2,
-        currency: idx.currency,
-      }));
-      return res.json({ quotes: mockQuotes, fetchedAt: Date.now() });
+      // No key → report the feed as unavailable rather than fabricating prices.
+      // The UI drops non-200 feeds and shows nothing instead of fake numbers.
+      return res.status(503).json({ error: 'FINNHUB_API_KEY not configured', quotes: [] });
     }
 
     const quotes = await Promise.all(

@@ -387,18 +387,39 @@ const MarketsScreen = () => {
                 })()}
               </div>
 
-              <div className="grid grid-cols-3 gap-1 mb-2 text-[9px]">
-                {[
-                  ["Entry", livePrice ? (livePrice * 0.9998).toFixed(asset.dec) : "—", "text-white/50"],
-                  ["Stop",  livePrice ? (livePrice * 0.9985).toFixed(asset.dec) : "—", "text-red-400/70"],
-                  ["Target",livePrice ? (livePrice * 1.003 ).toFixed(asset.dec) : "—", "text-emerald-400/70"],
-                ].map(([l, v, c]) => (
-                  <div key={l} className="text-center p-1.5 rounded bg-white/[0.02] border border-white/[0.04]">
-                    <div className="text-white/20 mb-0.5 font-mono uppercase">{l}</div>
-                    <div className={`font-black tabular-nums ${c}`}>{v}</div>
-                  </div>
-                ))}
+              {/* Bias + lead evidence — the "why" behind the score */}
+              <div className="flex items-center gap-1.5 mb-2 text-[9px] font-mono">
+                <span className="px-1.5 py-0.5 rounded font-black uppercase tracking-wide"
+                  style={{
+                    color: exa.bias === "BULLISH" ? "#10b981" : exa.bias === "BEARISH" ? "#ef4444" : "rgba(255,255,255,0.4)",
+                    background: exa.bias === "BULLISH" ? "rgba(16,185,129,0.12)" : exa.bias === "BEARISH" ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.05)",
+                  }}>
+                  {exa.bias}
+                </span>
+                <span className="text-white/30 truncate">{exa.factors[0]?.note ?? "warming up"}</span>
               </div>
+
+              {(() => {
+                // Direction-aware, volatility-scaled bracket. No levels when there's no edge.
+                const dir = exa.bias === "BULLISH" ? 1 : exa.bias === "BEARISH" ? -1 : 0;
+                const stopDist = 0.0012 * (0.6 + exa.volatility / 100); // wider in higher vol
+                const tgtDist  = stopDist * 2;                          // fixed 2R
+                const fmt = (x: number) => x.toFixed(asset.dec);
+                return (
+                  <div className="grid grid-cols-3 gap-1 mb-2 text-[9px]">
+                    {[
+                      ["Entry",  livePrice && dir ? fmt(livePrice) : "—", "text-white/50"],
+                      ["Stop",   livePrice && dir ? fmt(livePrice * (1 - dir * stopDist)) : "—", "text-red-400/70"],
+                      ["Target", livePrice && dir ? fmt(livePrice * (1 + dir * tgtDist )) : "—", "text-emerald-400/70"],
+                    ].map(([l, v, c]) => (
+                      <div key={l} className="text-center p-1.5 rounded bg-white/[0.02] border border-white/[0.04]">
+                        <div className="text-white/20 mb-0.5 font-mono uppercase">{l}</div>
+                        <div className={`font-black tabular-nums ${c}`}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <button
                 onClick={async () => {
@@ -408,17 +429,23 @@ const MarketsScreen = () => {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        signal: {
-                          signal: exa.verdict === "AUTHORIZED" ? "DEPLOY" : exa.verdict === "DELAY" ? "MONITOR" : "DENIED",
-                          pair: selected, bias: "NEUTRAL",
-                          confluence: exa.composite, locks: exa.locks,
-                          entry:  livePrice ? (livePrice * 0.9998).toFixed(asset.dec) : null,
-                          sl:     livePrice ? (livePrice * 0.9985).toFixed(asset.dec) : null,
-                          tp:     livePrice ? (livePrice * 1.003 ).toFixed(asset.dec) : null,
-                          rr: "2.0",
-                          reasoning: `${asset.label} EXA confluence ${exa.composite}/100. Locks: ${exa.locks.filter(Boolean).length}/4.`,
-                          session_note: getSession().label,
-                        },
+                        signal: (() => {
+                          const dir = exa.bias === "BULLISH" ? 1 : exa.bias === "BEARISH" ? -1 : 0;
+                          const stopDist = 0.0012 * (0.6 + exa.volatility / 100);
+                          const tgtDist  = stopDist * 2;
+                          const fmt = (x: number) => x.toFixed(asset.dec);
+                          return {
+                            signal: exa.verdict === "AUTHORIZED" ? "DEPLOY" : exa.verdict === "DELAY" ? "MONITOR" : "DENIED",
+                            pair: selected, bias: exa.bias,
+                            confluence: exa.composite, locks: exa.locks,
+                            entry: livePrice && dir ? fmt(livePrice) : null,
+                            sl:    livePrice && dir ? fmt(livePrice * (1 - dir * stopDist)) : null,
+                            tp:    livePrice && dir ? fmt(livePrice * (1 + dir * tgtDist )) : null,
+                            rr: "2.0",
+                            reasoning: `${asset.label} ${exa.bias} · confluence ${exa.composite}/100, ${exa.locks.filter(Boolean).length}/4 locks. ${exa.factors[0]?.label}: ${exa.factors[0]?.note}.`,
+                            session_note: getSession().label,
+                          };
+                        })(),
                       }),
                     });
                     setAlertSent(true);

@@ -24,18 +24,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     );
 
     if (!resp.ok) {
-      // Return mock data on error
-      const mockQuotes: CryptoQuote[] = COINS.map((id, i) => ({
-        id,
-        name: id === 'bitcoin' ? 'Bitcoin' : 'Ethereum',
-        symbol: id === 'bitcoin' ? 'BTC' : 'ETH',
-        price: id === 'bitcoin' ? 65000 + Math.random() * 5000 : 3500 + Math.random() * 500,
-        change24h: (Math.random() - 0.5) * 1000,
-        changePercent24h: (Math.random() - 0.5) * 5,
-        marketCap: id === 'bitcoin' ? 1.2e12 : 4e11,
-        volume24h: 2e10,
-      }));
-      return res.json({ quotes: mockQuotes, fetchedAt: Date.now() });
+      // Upstream down → report unavailable rather than inventing crypto prices.
+      // The UI drops non-200 feeds and shows nothing instead of fake numbers.
+      return res.status(502).json({ error: `coingecko ${resp.status}`, quotes: [] });
     }
 
     const data = await resp.json();
