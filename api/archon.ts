@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { WARROOM_DOCTRINE, getPlaybook, roundMagnet } from './_playbooks.js';
+import { fetchDailyLevels } from './_levels.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -23,6 +24,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const biasHint = chg > 0.05 ? 'BULLISH' : chg < -0.05 ? 'BEARISH' : 'NEUTRAL';
   const magnet = self?.price ? roundMagnet(pair, self.price) : 'n/a';
 
+  // Real swing-liquidity levels (previous day / week / month H-L) for this pair.
+  const lv = await fetchDailyLevels(pair);
+  const fmtL = (n: number) => n.toFixed(dp(pair));
+  const levelsBlock = lv
+    ? `PDH ${fmtL(lv.pdh)} · PDL ${fmtL(lv.pdl)} | PWH ${fmtL(lv.pwh)} · PWL ${fmtL(lv.pwl)} | PMH ${fmtL(lv.pmh)} · PML ${fmtL(lv.pml)}`
+    : 'unavailable';
+
   const prompt = `Analyze ${pair} RIGHT NOW and return ONLY valid JSON.
 
 LIVE MARKET DATA (use this to run the correlation shield):
@@ -32,11 +40,16 @@ CURRENT SESSION: ${session || 'Unknown'}
 ${pair} DAY MOVE: ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% → bias hint: ${biasHint}
 LIQUIDITY MAGNET: ${pair} is ${magnet}
 
+KEY SWING LEVELS (real previous day/week/month highs & lows — these are the actual
+stop-cluster targets and invalidation lines; cite THESE, not just round numbers):
+${levelsBlock}
+
 ASSET PLAYBOOK (apply this — it is YOUR backtested edge):
 ${getPlaybook(pair)}
 
 Run the 4-LOCKS, verify the correlation shield against the live prices above, apply
-the Paradox Cone, then return ONLY this JSON (no prose outside it):
+the Paradox Cone, anchor entry/SL/TP and key_levels to the real swing levels above,
+then return ONLY this JSON (no prose outside it):
 {
   "pair": "${pair}",
   "signal": "DEPLOY|MONITOR|DENIED",
