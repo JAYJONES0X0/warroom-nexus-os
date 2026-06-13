@@ -86,7 +86,15 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
                 <div className="text-[10px] text-white/30 font-mono">confluence</div>
               </div>
             </div>
-            <p className="text-xs text-white/60 font-mono leading-relaxed mb-3">{signal.reasoning}</p>
+            {signal.pattern && signal.pattern !== "none" && (
+              <div className="text-[10px] font-mono mb-2 px-2 py-1 rounded inline-block" style={{ background: "rgba(170,68,255,0.1)", color: "#c89aff", border: "1px solid rgba(170,68,255,0.25)" }}>
+                ▣ {signal.pattern}
+              </div>
+            )}
+            <p className="text-xs text-white/60 font-mono leading-relaxed mb-2">{signal.reasoning}</p>
+            {signal.invalidation && (
+              <p className="text-[10px] text-red-400/60 font-mono leading-relaxed mb-3">⚠ Invalidation: {signal.invalidation}</p>
+            )}
             {signal.entry && (
               <div className="grid grid-cols-4 gap-2 mb-3">
                 {[["Entry", signal.entry], ["Stop Loss", signal.sl], ["Take Profit", signal.tp], ["R:R", signal.rr ? `1:${signal.rr}` : "—"]].map(([l, v]: any) => (

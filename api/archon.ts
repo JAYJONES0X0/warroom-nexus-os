@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { WARROOM_DOCTRINE, getPlaybook, roundMagnet } from './_playbooks';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -9,38 +10,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) return res.status(500).json({ error: 'GROQ_API_KEY not configured' });
 
+  const dp = (k: string) => (k === 'NAS100' || k === 'SPX' || k === 'BTCUSD' ? 0 : k === 'XAUUSD' ? 2 : 4);
   const priceLines = prices
     ? Object.entries(prices).map(([k, v]: [string, any]) =>
-        `${k}: ${v.price?.toFixed?.(k === 'NAS100' || k === 'SPX' || k === 'BTCUSD' ? 0 : k === 'XAUUSD' ? 2 : 4)} (${v.changePct >= 0 ? '+' : ''}${v.changePct?.toFixed?.(2)}%)`
+        `${k}: ${v.price?.toFixed?.(dp(k))} (${v.changePct >= 0 ? '+' : ''}${v.changePct?.toFixed?.(2)}%)`
       ).join('\n')
     : 'No prices available';
 
-  const prompt = `You are ARCHON — the EXA autonomous override protocol. Analyze ${pair} right now and return ONLY valid JSON, no other text.
+  // Derive a bias hint from the day's move (ARCHON may override with structure).
+  const self = prices?.[pair];
+  const chg = self?.changePct ?? 0;
+  const biasHint = chg > 0.05 ? 'BULLISH' : chg < -0.05 ? 'BEARISH' : 'NEUTRAL';
+  const magnet = self?.price ? roundMagnet(pair, self.price) : 'n/a';
 
-LIVE MARKET DATA:
+  const prompt = `Analyze ${pair} RIGHT NOW and return ONLY valid JSON.
+
+LIVE MARKET DATA (use this to run the correlation shield):
 ${priceLines}
 
-Current Session: ${session || 'Unknown'}
+CURRENT SESSION: ${session || 'Unknown'}
+${pair} DAY MOVE: ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% → bias hint: ${biasHint}
+LIQUIDITY MAGNET: ${pair} is ${magnet}
 
-Analyze ${pair} using EXA 4-LOCKS framework:
-- Lock1: Is market structure bullish or bearish?
-- Lock2: Is there a liquidity pool nearby that has been swept or is available?
-- Lock3: Is this a valid trading session (London/NY killzone)?
-- Lock4: Is there confirmation (displacement, BOS, FVG)?
+ASSET PLAYBOOK (apply this — it is YOUR backtested edge):
+${getPlaybook(pair)}
 
-Return ONLY this JSON:
+Run the 4-LOCKS, verify the correlation shield against the live prices above, apply
+the Paradox Cone, then return ONLY this JSON (no prose outside it):
 {
   "pair": "${pair}",
   "signal": "DEPLOY|MONITOR|DENIED",
   "bias": "BULLISH|BEARISH|NEUTRAL",
   "confluence": 0-100,
-  "locks": [true|false, true|false, true|false, true|false],
+  "locks": [structure:bool, liquidity:bool, session:bool, confluence:bool],
+  "pattern": "the playbook setup that fits, or 'none'",
   "entry": "price or null",
   "sl": "price or null",
   "tp": "price or null",
-  "rr": "ratio or null",
+  "rr": "ratio number or null",
   "key_levels": ["level1", "level2"],
-  "reasoning": "2-3 sentence institutional analysis",
+  "reasoning": "2-3 sentences citing the specific lock(s), pattern and correlation evidence",
+  "invalidation": "what price action would kill this idea",
   "session_note": "one line session comment"
 }`;
 
@@ -51,11 +61,12 @@ Return ONLY this JSON:
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'You are a financial analysis AI. Respond ONLY with valid JSON.' },
+          { role: 'system', content: `${WARROOM_DOCTRINE}\n\nRespond ONLY with valid JSON.` },
           { role: 'user', content: prompt },
         ],
         temperature: 0.2,
-        max_tokens: 600,
+        max_tokens: 800,
+        response_format: { type: 'json_object' },
       }),
     });
 
