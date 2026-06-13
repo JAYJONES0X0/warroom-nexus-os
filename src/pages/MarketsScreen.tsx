@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores } from "@/hooks/useEXAScores";
+import { ASSET_BRAIN } from "@/lib/warroomBrain";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroCalendar } from "@/components/MacroCalendar";
 
@@ -313,7 +314,7 @@ const MarketsScreen = () => {
             {/* Bottom stats */}
             <div className="flex items-center gap-6 px-4 py-2 border-t border-white/[0.05] bg-black/40 shrink-0 text-[10px]">
               {[
-                ["Session WR", session.label.includes("LONDON") ? "67%" : session.label.includes("NY") ? "64%" : session.label.includes("ASIA") ? "72%" : "—", session.color],
+                ["Win Rate", exa.winRate != null ? `${exa.winRate}%` : "—", exa.winRate != null && exa.winRate >= 70 ? "#10b981" : "#f59e0b"],
                 ["EXA Locks", `${exa.locks.filter(Boolean).length}/4`, exa.locks.filter(Boolean).length >= 3 ? "#10b981" : "#f59e0b"],
                 ["Confluence", `${exa.composite}/100`, exa.composite >= 70 ? "#10b981" : exa.composite >= 50 ? "#f59e0b" : "#ef4444"],
                 ["24h Gainers", `${Object.values(prices).filter((x: any) => x.changePct > 0).length}/${ALL_ASSETS.length}`, "#10b981"],
@@ -420,6 +421,49 @@ const MarketsScreen = () => {
                   </div>
                 );
               })()}
+
+              {/* WARROOM PLAYBOOK INTELLIGENCE — backtested edge + live correlation confirmation */}
+              <div className="mb-2 p-2 rounded-lg bg-amber-500/[0.03] border border-amber-500/[0.12]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-amber-400/70">Playbook Edge</span>
+                  {exa.winRate != null && (
+                    <span className="text-[9px] font-mono text-white/40">
+                      WR <b className="text-emerald-400">{exa.winRate}%</b> · {exa.expectancy}
+                    </span>
+                  )}
+                </div>
+                {(() => {
+                  const c = exa.confirmation;
+                  const cc = c.confidence === "HIGH" ? "#10b981" : c.confidence === "MODERATE" ? "#f59e0b" : "#ef4444";
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] text-white/30 font-mono uppercase tracking-wide">Correlation</span>
+                        <span className="text-[9px] font-black" style={{ color: cc }}>
+                          {c.confirms}/{Math.max(1, c.confirms + c.denies)} · {c.confidence}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {c.checks.map((chk) => {
+                          const flat = chk.actual === 0 || Math.abs(chk.actual) < 0.03;
+                          const col = flat ? "rgba(255,255,255,0.35)" : chk.ok ? "#10b981" : "#ef4444";
+                          const bg  = flat ? "rgba(255,255,255,0.04)" : chk.ok ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)";
+                          return (
+                            <span key={chk.asset} className="text-[8px] font-mono px-1 py-0.5 rounded" style={{ color: col, background: bg }}
+                              title={`ρ=${chk.rho} · expected ${chk.expected} · actual ${chk.actual >= 0 ? "+" : ""}${chk.actual.toFixed(2)}%${chk.derived ? " (derived)" : ""}`}>
+                              {flat ? "•" : chk.ok ? "✓" : "✗"} {chk.asset}
+                            </span>
+                          );
+                        })}
+                        {exa.confirmation.checks.length === 0 && (
+                          <span className="text-[8px] text-white/20 font-mono">no directional bias to confirm</span>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="text-[8px] text-white/25 font-mono mt-1.5 leading-tight">{ASSET_BRAIN[selected]?.edge}</div>
+              </div>
 
               <button
                 onClick={async () => {

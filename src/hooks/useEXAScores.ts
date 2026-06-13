@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { usePrices } from "./usePrices";
+import { ASSET_BRAIN, correlationConfirmation, type CorrelationResult } from "@/lib/warroomBrain";
 
 export interface EXAFactor {
   label: string;
@@ -22,12 +23,21 @@ export interface EXAScores {
   momentum: number;       // -100..100 signed directional momentum
   ticks: number;          // live samples in the rolling window
   factors: EXAFactor[];
+  // WARROOM brain grounding
+  confirmation: CorrelationResult; // live cross-asset correlation confirmation
+  winRate: number | null;          // backtested overall win rate (%)
+  expectancy: string | null;       // backtested expectancy per trade
 }
+
+const EMPTY_CONFIRMATION: CorrelationResult = {
+  confirms: 0, denies: 0, neutral: 0, total: 0, score: 0, confidence: "STAND ASIDE", checks: [],
+};
 
 const EMPTY: EXAScores = {
   technical: 0, risk: 0, sentiment: 0, volatility: 0, liquidity: 0,
   composite: 0, verdict: "DENIED", locks: [false, false, false, false],
   session: "Loading...", bias: "NEUTRAL", momentum: 0, ticks: 0, factors: [],
+  confirmation: EMPTY_CONFIRMATION, winRate: null, expectancy: null,
 };
 
 // Typical daily move (%) per instrument — used to normalise volatility 0-100
@@ -146,8 +156,15 @@ export function useEXAScores(pair = "EURUSD"): EXAScores {
     // Liquidity: session depth.
     const liquidity = session.liquidity;
 
+    // Cross-asset confirmation — the WARROOM correlation matrix, live. A flat
+    // market reads as neutral (50) rather than tanking the score to zero.
+    const confirmation = correlationConfirmation(pair, bias, prices);
+    const confirmScore = bias === "NEUTRAL" ? 50 : confirmation.score;
+
+    // Confluence — technical-led, with correlation as a secondary filter (the
+    // brain is explicit: SMC structure is primary, correlation confirms it).
     const composite = clamp(round(
-      technical * 0.25 + risk * 0.30 + sentiment * 0.15 + volatility * 0.15 + liquidity * 0.15
+      technical * 0.25 + risk * 0.22 + confirmScore * 0.18 + sentiment * 0.08 + volatility * 0.12 + liquidity * 0.15
     ));
 
     const verdict: EXAScores["verdict"] =
@@ -155,24 +172,29 @@ export function useEXAScores(pair = "EURUSD"): EXAScores {
 
     // 4-LOCKS — each grounded in a real, observable condition.
     const locks = [
-      technical >= 55,                      // Structure: clean directional move present
-      liquidity >= 55,                      // Liquidity: session has depth
-      session.active,                       // Timing: inside a real trading session
-      bias !== "NEUTRAL" && composite >= 65 // Confirmation: directional + confluence
+      technical >= 55,                                            // Structure: clean directional move
+      liquidity >= 55,                                            // Liquidity: session has depth
+      session.active,                                             // Timing: inside a real trading session
+      bias !== "NEUTRAL" && confirmation.confidence !== "STAND ASIDE", // Confirmation: correlations agree
     ];
 
+    const brain = ASSET_BRAIN[pair];
     const winMin = stats.windowMin >= 0.1 ? `${stats.windowMin.toFixed(1)}m` : "warming up";
+    const confirmNote = bias === "NEUTRAL"
+      ? "no directional bias to confirm"
+      : `${confirmation.confirms}/${confirmation.confirms + confirmation.denies} agree · ${confirmation.confidence}`;
     const factors: EXAFactor[] = [
       { label: "Momentum",        value: round(momStrength), note: `${bias} · ${momPct >= 0 ? "+" : ""}${momPct.toFixed(2)}% (${winMin})` },
       { label: "Trend Clarity",   value: round(persistence * 100), note: haveTicks ? `${round(persistence * 100)}% of ${stats.n} ticks aligned` : "building tick history" },
+      { label: "Correlation",     value: confirmScore, note: confirmNote },
       { label: "Volatility",      value: volatility, note: `${(Math.abs(p.changePct)).toFixed(2)}% day vs ${ref}% typical` },
-      { label: "Risk Appetite",   value: sentiment, note: appetite.note },
       { label: "Session Liquidity", value: liquidity, note: session.name },
     ];
 
     setScores({
       technical, risk, sentiment, volatility, liquidity, composite, verdict,
       locks, session: session.name, bias, momentum, ticks: stats.n, factors,
+      confirmation, winRate: brain?.winRate ?? null, expectancy: brain?.expectancy ?? null,
     });
   }, [prices, pair]);
 
