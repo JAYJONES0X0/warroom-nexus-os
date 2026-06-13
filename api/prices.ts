@@ -59,31 +59,33 @@ async function fetchTwelveData(apiKey: string): Promise<PriceResult | null> {
   return Object.keys(prices).length >= 5 ? prices : null;
 }
 
+// Yahoo's batched v7 /quote endpoint now demands crumb auth and 401s on serverless.
+// The v8 /chart endpoint still serves price + previous close per symbol, so we
+// fan out one chart request per instrument and tolerate individual failures.
 async function fetchYahoo(): Promise<PriceResult> {
-  const symbols = Object.values(YAHOO_SYMBOL_MAP).join(',');
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange`;
-
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`Yahoo ${res.status}`);
-
-  const data = await res.json();
-  const quotes = data?.quoteResponse?.result ?? [];
-  const reverseMap = Object.fromEntries(Object.entries(YAHOO_SYMBOL_MAP).map(([k, v]) => [v, k]));
+  const results = await Promise.all(
+    Object.entries(YAHOO_SYMBOL_MAP).map(async ([nexusKey, ySym]) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=1d&range=1d`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        const price = meta?.regularMarketPrice;
+        if (price == null) return null;
+        const prev = meta.chartPreviousClose ?? meta.previousClose ?? price;
+        const change = price - prev;
+        const changePct = prev ? (change / prev) * 100 : 0;
+        return [nexusKey, { price, change, changePct, symbol: ySym }] as const;
+      } catch {
+        return null;
+      }
+    })
+  );
 
   const prices: PriceResult = {};
-  for (const q of quotes) {
-    const nexusKey = reverseMap[q.symbol];
-    if (nexusKey) {
-      prices[nexusKey] = {
-        price:     q.regularMarketPrice ?? 0,
-        change:    q.regularMarketChange ?? 0,
-        changePct: q.regularMarketChangePercent ?? 0,
-        symbol:    q.symbol,
-      };
-    }
-  }
+  for (const r of results) if (r) prices[r[0]] = r[1];
+  if (Object.keys(prices).length === 0) throw new Error('Yahoo v8: no symbols resolved');
   return prices;
 }
 
