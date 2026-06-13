@@ -10,7 +10,9 @@ export interface PolyMarket {
   outcomeNames: string[];
   daysLeft: number | null;
   score: number;
-  edge: string;
+  edge: string;          // structural classification: ARB|CONTESTED|CONSENSUS|LONGSHOT|THIN
+  rationale?: string;    // top score drivers (server-computed)
+  arb?: boolean;         // true arbitrage spread present
 }
 
 export interface PolyState {

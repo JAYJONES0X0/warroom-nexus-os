@@ -5,36 +5,40 @@ import { useWorldMonitorMarkets } from "@/hooks/useWorldMonitorMarkets";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroContextPanel } from "@/components/MacroContextPanel";
 
-// ─── Prediction-market Kelly Criterion ───────────────────────────────────────
-// We don't know true prob, so we estimate it as halfway between market price
-// and 50% — conservative assumption that the crowd is partially right.
-function pmKelly(marketPrice: number, side: "yes" | "no"): number {
-  const p = side === "yes" ? marketPrice : 1 - marketPrice;
-  if (p >= 0.88) return 0; // near-certain, no edge
-  const trueProbEst = (p + 0.5) / 2; // conservative edge estimate
-  const b = (1 - p) / p; // prediction market decimal odds
-  const k = (b * trueProbEst - (1 - trueProbEst)) / b;
-  return Math.max(0, Math.min(k * 0.5, 0.10)) * 100; // half-Kelly, cap 10%
-}
+// ─── Classification helpers ───────────────────────────────────────────────────
+// Honest structural tags (set server-side). The market price IS the consensus
+// probability — we describe what a market is, never a fabricated mispricing.
+const TAG_COLOR: Record<string, string> = {
+  ARB: "#22d3ee", CONTESTED: "#f59e0b", CONSENSUS: "#94a3b8",
+  LONGSHOT: "#a855f7", THIN: "#6b7280", OPEN: "#64748b",
+};
+const TAG_SHORT: Record<string, string> = {
+  ARB: "ARB", CONTESTED: "50/50", CONSENSUS: "SET",
+  LONGSHOT: "LEAN", THIN: "THIN", OPEN: "OPEN",
+};
+const tagColor = (t: string): string => TAG_COLOR[t] ?? TAG_COLOR.OPEN;
+const tagShort = (t: string): string => TAG_SHORT[t] ?? TAG_SHORT.OPEN;
 
-// ─── Edge helpers ─────────────────────────────────────────────────────────────
-function edgeColor(edge: string): string {
-  if (edge === "YES EDGE") return "#10b981";
-  if (edge === "NO EDGE")  return "#ef4444";
-  return "#f59e0b";
-}
-
-function edgeShort(edge: string): string {
-  if (edge === "YES EDGE") return "YES";
-  if (edge === "NO EDGE")  return "NO";
-  return "NEU";
+// Honest one-paragraph read. Only ARB carries a real, structural edge.
+function marketRead(m: PolyMarket): string {
+  const yes = Math.round(m.yesPrice * 100);
+  const sum = m.yesPrice + m.noPrice;
+  const liq = m.liquidity >= 1_000_000 ? `$${(m.liquidity / 1_000_000).toFixed(2)}M` : `$${(m.liquidity / 1000).toFixed(0)}K`;
+  switch (m.edge) {
+    case "ARB":       return `Outcome prices sum to ${(sum * 100).toFixed(1)}¢ — under $1.00. Buying YES + NO locks ~${((1 - sum) / sum * 100).toFixed(1)}% regardless of result. A real, structural edge.`;
+    case "CONTESTED": return `Genuine toss-up — market implies YES ${yes}%. This is where fresh information actually moves price; watch news and whale flow. No standing edge, but the highest informational value.`;
+    case "CONSENSUS": return `Strongly priced at YES ${yes}%. The crowd has largely decided — little left to win unless you hold a contrarian thesis the market hasn't seen.`;
+    case "LONGSHOT":  return `Asymmetric lean — market implies YES ${yes}%. Small stake, large payoff if consensus is wrong, but the base rate favors the crowd.`;
+    case "THIN":      return `Only ${liq} liquidity — you likely can't get filled at meaningful size. Treat as untradeable however tempting the price looks.`;
+    default:          return `Tradeable with no structural edge — market implies YES ${yes}%. The price is your best probability estimate.`;
+  }
 }
 
 // ─── Market row ───────────────────────────────────────────────────────────────
 const MarketRow = ({
   market, selected, onClick,
 }: { market: PolyMarket; selected: boolean; onClick: () => void }) => {
-  const ec  = edgeColor(market.edge);
+  const ec  = tagColor(market.edge);
   const bar = Math.min(100, (market.volume24h / 500_000) * 100);
 
   return (
@@ -54,7 +58,7 @@ const MarketRow = ({
         <div className="shrink-0 flex items-center gap-1.5">
           <div className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
             style={{ color: ec, background: `${ec}18`, border: `1px solid ${ec}30` }}>
-            {edgeShort(market.edge)}
+            {tagShort(market.edge)}
           </div>
           <div className="text-[8px] text-white/20 font-mono">
             Score: {Math.round(market.score)}
@@ -160,12 +164,9 @@ function getRelevantMacroIndicators(question: string, marketQuotes: any[], crypt
 
 // ─── Market detail / signal panel ────────────────────────────────────────────
 const MarketDetail = ({ market }: { market: PolyMarket }) => {
-  const ec        = edgeColor(market.edge);
-  const isYes     = market.edge === "YES EDGE";
-  const isNo      = market.edge === "NO EDGE";
-  const betSide   = isYes ? "YES" : isNo ? "NO" : "—";
-  const betKelly  = isYes ? pmKelly(market.yesPrice, "yes") : isNo ? pmKelly(market.yesPrice, "no") : 0;
-  const composite = Math.round(market.score);
+  const ec         = tagColor(market.edge);
+  const composite  = Math.round(market.score);
+  const impliedYes = Math.round(market.yesPrice * 100);
   const { marketQuotes, cryptoQuotes } = useWorldMonitorMarkets();
   const macroIndicators = useMemo(() => 
     getRelevantMacroIndicators(market.question, marketQuotes, cryptoQuotes),
@@ -219,14 +220,14 @@ const MarketDetail = ({ market }: { market: PolyMarket }) => {
               style={{ color: ec, textShadow: `0 0 30px ${ec}60` }}>
               {composite}
             </div>
-            <div className="text-[10px] text-white/30 font-mono mt-1">COMPOSITE EDGE SCORE / 100</div>
+            <div className="text-[10px] text-white/30 font-mono mt-1">TRADEABILITY SCORE / 100</div>
           </div>
           <div className="w-full space-y-2">
             <div className="text-[9px] text-white/40 uppercase font-mono mb-1">Signal Breakdown</div>
             {[
               ["Volume Influence",    Math.min(100, (market.volume24h / 1_000_000) * 60 + 20)],
               ["Liquidity Strength",  Math.min(100, (market.liquidity  / 500_000)  * 50 + 15)],
-              ["Price Discrepancy", Math.abs(market.yesPrice - 0.5) < 0.38 ? Math.abs(market.yesPrice - 0.5) * 200 : 10],
+              ["Contestedness", Math.round((1 - Math.abs(market.yesPrice - 0.5) * 2) * 100)],
               ["Time Horizon Risk", market.daysLeft ? Math.min(100, (30 / market.daysLeft) * 60 + 20) : 50],
             ].map(([label, val]) => (
               <div key={label as string}>
@@ -243,38 +244,40 @@ const MarketDetail = ({ market }: { market: PolyMarket }) => {
           </div>
         </div>
 
-        {/* Kelly sizing — only show relevant side */}
+        {/* Market read — honest classification + implied probability, no fabricated edge */}
         <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl mt-4">
-          {market.edge === "NEUTRAL" ? (
-            <div className="text-center text-[10px] text-white/25 font-mono leading-relaxed">
-              No clear edge detected. Consider standing aside or awaiting further price action.
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] text-white/30 font-mono uppercase tracking-wider">Market-implied probability</span>
+            <span className="text-[10px] font-mono">
+              <span className="text-emerald-400 font-black">YES {impliedYes}%</span>
+              <span className="text-white/20 mx-1">/</span>
+              <span className="text-red-400 font-black">NO {100 - impliedYes}%</span>
+            </span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden bg-red-500/25 mb-3">
+            <div className="h-full bg-emerald-500/70" style={{ width: `${impliedYes}%` }} />
+          </div>
+          <div className="text-[10px] font-mono leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <span className="font-black uppercase mr-1.5" style={{ color: ec }}>{market.edge}</span>
+            {marketRead(market)}
+          </div>
+          {market.edge === "ARB" ? (
+            <div className="text-center border-t border-white/[0.06] pt-3">
+              <div className="text-[9px] text-white/30 font-mono uppercase mb-1">Locked arbitrage return</div>
+              <div className="text-3xl font-black" style={{ color: ec }}>
+                {(((1 - (market.yesPrice + market.noPrice)) / (market.yesPrice + market.noPrice)) * 100).toFixed(1)}%
+              </div>
+              <div className="text-[8px] text-white/20 font-mono">buy YES + NO · capped by available liquidity</div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-4">
-              <div className="text-center">
-                <div className="text-[9px] text-white/30 font-mono uppercase mb-1">
-                  OPTIMAL BET SIDE & KELLY SIZE
-                </div>
-                <div className="flex items-baseline gap-2 justify-center">
-                  <span className="text-3xl font-black" style={{ color: ec }}>
-                    {betKelly.toFixed(1)}%
-                  </span>
-                  <span className="text-xl font-bold" style={{ color: ec }}>
-                    {betSide}
-                  </span>
-                </div>
-                <div className="text-[8px] text-white/20 font-mono">of bankroll (conservative half-Kelly)</div>
-              </div>
-              <div className="text-[9px] text-white/30 font-mono leading-relaxed text-center border-t border-white/[0.06] pt-3 w-full">
-                {isYes
-                  ? `Thesis: YES at ${(market.yesPrice * 100).toFixed(0)}¢ appears undervalued. The crowd is likely over-weighting the NO outcome. Significant edge on the upside.`
-                  : `Thesis: NO at ${(market.noPrice * 100).toFixed(0)}¢ appears undervalued. The crowd is likely over-weighting the YES outcome. Strong edge fading the perceived favorite.`}
-              </div>
+            <div className="text-[9px] text-white/30 font-mono leading-relaxed text-center border-t border-white/[0.06] pt-3">
+              No independent edge — the market price is our best probability estimate.
+              Size from your own conviction, not ours.
             </div>
           )}
         </div>
         <div className="mt-3 text-[9px] text-white/15 font-mono text-center">
-          All probabilities are conservatively estimated. Independent thesis verification is crucial.
+          The market price is the consensus probability. We surface structure & tradeability, not a private edge.
         </div>
       </div>
 
@@ -320,13 +323,13 @@ const PolymarketScreen = () => {
   const { markets, fetchedAt, loading, error } = usePolymarkets();
   const [selected, setSelected]  = useState<PolyMarket | null>(null);
   const [sortBy,   setSortBy]    = useState<"score" | "volume" | "liquidity">("score");
-  const [filter,   setFilter]    = useState<"all" | "yes" | "no" | "neutral">("all");
+  const [filter,   setFilter]    = useState<"all" | "contested" | "consensus" | "arb">("all");
 
   const sorted = useMemo(() => {
     let m = [...markets];
-    if (filter === "yes")     m = m.filter(x => x.edge === "YES EDGE");
-    if (filter === "no")      m = m.filter(x => x.edge === "NO EDGE");
-    if (filter === "neutral") m = m.filter(x => x.edge === "NEUTRAL");
+    if (filter === "contested") m = m.filter(x => x.edge === "CONTESTED");
+    if (filter === "consensus") m = m.filter(x => x.edge === "CONSENSUS");
+    if (filter === "arb")       m = m.filter(x => x.edge === "ARB");
     m.sort((a, b) => sortBy === "score" ? b.score - a.score : sortBy === "volume" ? b.volume24h - a.volume24h : b.liquidity - a.liquidity);
     return m;
   }, [markets, sortBy, filter]);
@@ -334,22 +337,25 @@ const PolymarketScreen = () => {
   const activeMarket = selected ?? sorted[0] ?? null;
   const marketsLoaded = markets.length > 0;
 
-  const agentSystem = `You are NEXUS-P, the EXA Polymarket Intelligence agent. Institutional-grade prediction market analysis.
+  const agentSystem = `You are NEXUS-P, the EXA Polymarket Intelligence agent — a disciplined, honest prediction-market analyst.
 
-Framework:
-- YES EDGE = market price undervalues YES probability (crowd wrong on the downside)
-- NO EDGE = market price overvalues YES probability (crowd wrong on the upside)
-- NEUTRAL = no clear mispricing, stand aside
-- Kelly sizing is conservative (half-Kelly, capped at 10% bankroll)
+CORE TRUTH: the market price IS the consensus probability (YES 62¢ = the market thinks ~62%). NEVER call a side "undervalued" or "overvalued" without a SPECIFIC, evidenced reason the market is wrong (breaking news, a base rate the crowd ignores, whale/orderbook flow). Absent that, the honest answer is "priced fairly — no edge."
 
-Live market data: ${markets.length} active markets tracked.
-${markets.slice(0, 5).map(m => `"${m.question.slice(0, 60)}..." YES:${(m.yesPrice*100).toFixed(0)}¢ Edge:${m.edge} Score:${Math.round(m.score)}`).join('\n')}
+Classifications (structural, not directional):
+- ARB = outcome prices sum below $1.00 → a real, locked arbitrage edge.
+- CONTESTED = ~50/50 with volume → where fresh information moves price.
+- CONSENSUS = strongly priced in → little left to win.
+- LONGSHOT = asymmetric lean → small stake, base rate favors the crowd.
+- THIN = too little liquidity to trade.
 
-Be sharp. State the thesis. Quantify the edge. No fluff.`;
+Live markets tracked: ${markets.length}.
+${markets.slice(0, 5).map(m => `"${m.question.slice(0, 56)}..." impliedYES:${(m.yesPrice*100).toFixed(0)}% ${m.edge} score:${Math.round(m.score)}`).join('\n')}
+
+Be sharp and honest. State the implied probability. Only claim an edge if you can name the concrete reason. No fabricated theses.`;
 
   const autoPrompt = activeMarket
-    ? `Analyze: "${activeMarket.question}". Market: YES ${(activeMarket.yesPrice * 100).toFixed(0)}¢ / NO ${(activeMarket.noPrice * 100).toFixed(0)}¢. Volume: $${activeMarket.volume24h >= 1_000_000 ? (activeMarket.volume24h/1_000_000).toFixed(1)+'M' : (activeMarket.volume24h/1000).toFixed(0)+'K'}. Days left: ${activeMarket.daysLeft ?? 'unknown'}. Signal: ${activeMarket.edge}. What's the edge and what's your thesis?`
-    : "Scan the top prediction markets and identify the strongest edge opportunity right now.";
+    ? `Analyze: "${activeMarket.question}". Market implies YES ${(activeMarket.yesPrice * 100).toFixed(0)}% / NO ${(activeMarket.noPrice * 100).toFixed(0)}%. Volume: $${activeMarket.volume24h >= 1_000_000 ? (activeMarket.volume24h/1_000_000).toFixed(1)+'M' : (activeMarket.volume24h/1000).toFixed(0)+'K'}. Days left: ${activeMarket.daysLeft ?? 'unknown'}. Classification: ${activeMarket.edge}. Is there a concrete, evidenced reason to fade consensus, or is this priced fairly?`
+    : "Scan the markets. Flag any real arbitrage, and any contested market where fresh information could move price. Be honest where there's no edge.";
 
   const age = fetchedAt ? Math.max(0, Math.floor((Date.now() - fetchedAt) / 1000)) : null;
 
@@ -398,7 +404,7 @@ Be sharp. State the thesis. Quantify the edge. No fluff.`;
               ))}
             </div>
             <div className="flex gap-1">
-              {(["all", "yes", "no", "neutral"] as const).map(f => (
+              {(["all", "contested", "consensus", "arb"] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className="flex-1 text-[8px] font-black uppercase py-0.5 rounded transition-all"
                   style={filter === f
@@ -434,7 +440,7 @@ Be sharp. State the thesis. Quantify the edge. No fluff.`;
             <MarketDetail market={activeMarket} />
           ) : (
             <div className="flex items-center justify-center h-full text-white/15 font-mono text-sm">
-              {loading ? "Loading markets..." : "No markets with edge found"}
+              {loading ? "Loading markets..." : "No markets match this filter"}
             </div>
           )}
         </div>

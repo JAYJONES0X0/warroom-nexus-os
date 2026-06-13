@@ -75,7 +75,7 @@ export const PolymarketPanel = () => {
           <div className="text-xl font-black text-primary">{markets.length}</div>
         </div>
         <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
-          <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Edge Found</div>
+          <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Tradeable</div>
           <div className={`text-xl font-black ${topEdge > 0 ? 'text-green-400' : 'text-white/40'}`}>{topEdge}</div>
         </div>
         <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
@@ -129,7 +129,7 @@ export const PolymarketPanel = () => {
               {expanded === m.id && (
                 <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-white/40 uppercase tracking-wider">Edge Signal</span>
+                    <span className="text-white/40 uppercase tracking-wider">Classification</span>
                     <div className="font-bold mt-0.5">{m.edge}</div>
                   </div>
                   <div>
@@ -145,7 +145,7 @@ export const PolymarketPanel = () => {
                     <div className="font-bold text-white/70 mt-0.5">{m.daysLeft ?? '—'}</div>
                   </div>
                   <div className="col-span-2 mt-1 text-white/30">
-                    Score based on volume depth, liquidity, and edge zone pricing.
+                    Score = liquidity depth, fresh volume, contestedness & time-to-resolution.
                   </div>
                 </div>
               )}

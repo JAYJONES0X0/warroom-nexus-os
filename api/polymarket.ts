@@ -57,14 +57,15 @@ function scoreMarket(m: GammaMarket, daysLeft: number | null): MarketScore {
   return { score, rationale, arb };
 }
 
-function edgeLabel(yesPrice: number): string {
-  // Near-certain = no edge (already priced in)
-  if (yesPrice >= 0.88 || yesPrice <= 0.12) return 'NEUTRAL';
-  // Sweet spot: YES underpriced (crowd leans NO but uncertainty exists)
-  if (yesPrice >= 0.15 && yesPrice <= 0.46) return 'YES EDGE';
-  // Sweet spot: NO underpriced (crowd leans YES but uncertainty exists)
-  if (yesPrice >= 0.54 && yesPrice <= 0.85) return 'NO EDGE';
-  return 'NEUTRAL';
+// Honest structural classification of what a market IS — NOT a mispricing call.
+// The market price is the consensus probability; we don't pretend to beat it. The
+// only genuine edge here is a real arbitrage spread (outcome prices sum < $1).
+function classify(yesPrice: number, liquidity: number, arb: boolean): string {
+  if (arb) return 'ARB';                                  // real free spread
+  if (liquidity < 50_000) return 'THIN';                  // likely unfillable / trap
+  if (yesPrice >= 0.80 || yesPrice <= 0.20) return 'CONSENSUS'; // strongly priced in
+  if (yesPrice >= 0.40 && yesPrice <= 0.60) return 'CONTESTED'; // genuine toss-up
+  return 'LONGSHOT';                                       // 0.20–0.40 / 0.60–0.80 lean
 }
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
@@ -102,7 +103,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           score,
           rationale,
           arb,
-          edge: edgeLabel(yesPrice),
+          edge: classify(yesPrice, Math.round(parseFloat(m.liquidity) || 0), arb),
         };
       })
       // Filter out effectively-resolved markets and expired ones
