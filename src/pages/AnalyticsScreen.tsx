@@ -1,6 +1,6 @@
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { PolymarketPanel } from "@/components/PolymarketPanel";
-import analyticsTexture from "@/assets/textures/analytics-realistic.jpg";
+import analyticsTexture from "@/assets/textures/real_saturn.jpg";
 
 const AnalyticsScreen = () => (
   <PlanetPageLayout

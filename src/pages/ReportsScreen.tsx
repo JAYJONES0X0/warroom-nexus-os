@@ -1,6 +1,6 @@
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { ProtectionAudit } from "@/components/ProtectionAudit";
-import historyTexture from "@/assets/textures/history-realistic.jpg";
+import historyTexture from "@/assets/textures/real_venus.jpg";
 
 const ReportsScreen = () => (
   <PlanetPageLayout

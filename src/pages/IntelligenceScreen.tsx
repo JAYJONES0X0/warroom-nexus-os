@@ -6,7 +6,7 @@ import { usePrices } from "@/hooks/usePrices";
 import { useEXAScan, type EXAScores } from "@/hooks/useEXAScores";
 import { useWorldMonitorMarkets } from "@/hooks/useWorldMonitorMarkets";
 import { ASSET_BRAIN } from "@/lib/warroomBrain";
-import intelligenceTexture from "@/assets/textures/intelligence-realistic.jpg";
+import intelligenceTexture from "@/assets/textures/real_neptune.jpg";
 
 // Stable reference for the scan hook — every asset it ranks.
 const SCAN_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "GBPJPY", "AUDUSD", "NZDUSD", "XAUUSD", "BTCUSD", "NAS100", "SPX", "DXY"];

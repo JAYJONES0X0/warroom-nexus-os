@@ -4,7 +4,7 @@ import { ScoreGauge } from "@/components/ScoreGauge";
 import { useEXAScores } from "@/hooks/useEXAScores";
 import { useKeyLevels } from "@/hooks/useKeyLevels";
 import { usePrices } from "@/hooks/usePrices";
-import executionTexture from "@/assets/textures/execution-realistic.jpg";
+import executionTexture from "@/assets/textures/real_jupiter.jpg";
 
 const PAIRS = ["EURUSD","XAUUSD","GBPUSD","USDJPY","GBPJPY","AUDUSD","NAS100","BTCUSD"];
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
-import journalTexture from "@/assets/textures/journal-realistic.jpg";
+import journalTexture from "@/assets/textures/real_mercury.jpg";
 
 const ENTRIES = [
   { date: "2026-04-17", asset: "EUR/USD", side: "BUY", result: "+2.8R", note: "Clean BOS on H4. Entered on FVG retest at London open. SL swept clean.", tags: ["BOS", "FVG", "London"] },

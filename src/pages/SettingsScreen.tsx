@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
-import settingsTexture from "@/assets/textures/settings-realistic.jpg";
+import settingsTexture from "@/assets/textures/real_earth_daymap.jpg";
 
 const SettingsScreen = () => {
   const [risk, setRisk] = useState("1.0");

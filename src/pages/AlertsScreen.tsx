@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
-import alertsTexture from "@/assets/textures/alerts-realistic.jpg";
+import alertsTexture from "@/assets/textures/real_mars.jpg";
 
 const INITIAL = [
   { id: 1, asset: "EUR/USD", type: "Price Level", condition: "Price reaches 1.0900", status: "WATCHING", priority: "HIGH" },
