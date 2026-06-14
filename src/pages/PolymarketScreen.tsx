@@ -27,28 +27,32 @@ function getRiskPct(): number {
   return 4;
 }
 
-// "This week's plays" — markets that fit the game: real toss-ups + true arbs,
-// enough liquidity to fill, resolving soon. Ranked by tradeability score.
+// "Money on the move" — liquid markets ranked by how hard the price moved in 24h.
+// The biggest shifts are the real stories (money flowing in/out); flat coin-flips
+// rank last. Stable order because move magnitudes are well-spread.
 function pickPlays(markets: PolyMarket[]): PolyMarket[] {
   return markets
-    .filter((m) => (m.edge === "CONTESTED" || m.edge === "ARB") && m.liquidity >= 100_000 && (m.daysLeft == null || m.daysLeft <= 14))
-    .sort((a, b) => b.score - a.score)
+    .filter((m) => m.liquidity >= 100_000 && m.yesPrice > 0.05 && m.yesPrice < 0.95 && (m.daysLeft == null || m.daysLeft <= 30))
+    .sort((a, b) => Math.abs(b.move24h ?? 0) - Math.abs(a.move24h ?? 0) || b.score - a.score)
     .slice(0, 6);
 }
 
 // ─── play action card ────────────────────────────────────────────────────────
-const PlayCard = ({ m, stake, onTake }: { m: PolyMarket; stake: number; onTake: (m: PolyMarket, side: "YES" | "NO") => void }) => {
+const PlayCard = ({ m, stake, onTake, hero }: { m: PolyMarket; stake: number; onTake: (m: PolyMarket, side: "YES" | "NO") => void; hero?: boolean }) => {
   const c = marketCopy(m);
-  const col = tagColor(m.edge);
+  const flowCol = c.flow === "IN" ? "#10b981" : c.flow === "OUT" ? "#ef4444" : "#6b7280";
+  const flowLabel = c.flow === "IN" ? "MONEY IN" : c.flow === "OUT" ? "MONEY OUT" : "FLAT";
   const [taken, setTaken] = useState<"YES" | "NO" | null>(null);
   const take = (side: "YES" | "NO") => { onTake(m, side); setTaken(side); setTimeout(() => setTaken(null), 2200); };
 
   return (
-    <div className="rounded-2xl p-5 border" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="text-[15px] font-black text-white leading-snug">{c.call}</div>
-        <span className="shrink-0 text-[9px] font-black uppercase px-2 py-1 rounded" style={{ color: col, background: `${col}1a`, border: `1px solid ${col}33` }}>{m.edge}</span>
+    <div className="rounded-2xl p-5 border" style={{ background: hero ? `${flowCol}0a` : "rgba(255,255,255,0.02)", borderColor: hero ? `${flowCol}3a` : "rgba(255,255,255,0.07)" }}>
+      <div className="flex items-center gap-2 mb-2">
+        {hero && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#c084fc" }}>Top mover</span>}
+        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded" style={{ color: flowCol, background: `${flowCol}1a`, border: `1px solid ${flowCol}33` }}>{flowLabel}</span>
+        <span className="ml-auto text-[9px] text-white/25 font-mono uppercase">{m.edge}</span>
       </div>
+      <div className={`${hero ? "text-xl" : "text-[15px]"} font-black text-white leading-snug mb-1`}>{c.call}</div>
       <div className="text-[11px] text-white/45 font-mono leading-relaxed mb-1">{m.question}</div>
       <div className="text-[11px] text-white/55 font-mono leading-relaxed mb-3">{c.why}</div>
 
@@ -178,7 +182,7 @@ Be sharp and plain. Help pick where a disciplined stake has the best shot. No fa
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {weekPlays.map((m) => <PlayCard key={m.id} m={m} stake={stake} onTake={take} />)}
+              {weekPlays.map((m, i) => <PlayCard key={m.id} m={m} stake={stake} onTake={take} hero={i === 0} />)}
             </div>
           )}
 

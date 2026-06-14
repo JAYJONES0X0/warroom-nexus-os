@@ -13,6 +13,7 @@ export interface PolyMarket {
   edge: string;          // structural classification: ARB|CONTESTED|CONSENSUS|LONGSHOT|THIN
   rationale?: string;    // top score drivers (server-computed)
   arb?: boolean;         // true arbitrage spread present
+  move24h?: number;      // YES price move over last 24h (probability points, e.g. -0.15)
 }
 
 export interface PolyState {

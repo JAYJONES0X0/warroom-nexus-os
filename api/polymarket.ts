@@ -8,6 +8,7 @@ interface GammaMarket {
   outcomePrices: string;
   outcomes: string;
   endDate: string;
+  oneDayPriceChange?: number;   // YES price move over 24h (probability points)
 }
 
 interface MarketScore { score: number; rationale: string; arb: boolean; }
@@ -106,6 +107,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           rationale,
           arb,
           edge: classify(yesPrice, Math.round(parseFloat(m.liquidity) || 0), arb),
+          move24h: Number.isFinite(m.oneDayPriceChange) ? (m.oneDayPriceChange as number) : 0,
         };
       })
       // Filter out effectively-resolved markets and expired ones
