@@ -100,3 +100,88 @@ export function computeStats(rec: TrackEntry[]): TrackStats {
     favHitRate: resolved.length ? Math.round((hits / resolved.length) * 100) : null,
   };
 }
+
+// ── Play journal + bankroll — the £100 operating system ──────────────────────
+// Logs the plays you actually take (side + stake) and scores them against your
+// bankroll once the market resolves. Process over outcome: you control the action.
+export interface Play {
+  id: string;
+  marketId: string;
+  question: string;
+  side: "YES" | "NO";
+  stake: number;          // £
+  entryPrice: number;     // price of the chosen side at entry (0-1)
+  takenAt: number;
+  resolved: "WON" | "LOST" | null;
+  resolvedAt?: number;
+  pnl: number;            // realized £ once resolved (0 while open)
+}
+
+const PLAYS_KEY = "warroom.plays.v1";
+export const BANKROLL_START = 100;
+
+function readPlays(): Play[] {
+  try { const s = localStorage.getItem(PLAYS_KEY); if (s) return JSON.parse(s) as Play[]; } catch { /* ignore */ }
+  return [];
+}
+function writePlays(arr: Play[]) {
+  try { localStorage.setItem(PLAYS_KEY, JSON.stringify(arr.slice(-MAX))); } catch { /* ignore */ }
+}
+
+export function getPlays(): Play[] { return readPlays(); }
+
+export function logPlay(
+  market: { id: string; question: string; yesPrice: number; noPrice: number },
+  side: "YES" | "NO",
+  stake: number,
+): Play[] {
+  const plays = readPlays();
+  const entryPrice = side === "YES" ? market.yesPrice : market.noPrice;
+  plays.push({
+    id: `${market.id}-${Date.now()}`, marketId: market.id, question: market.question,
+    side, stake, entryPrice, takenAt: Date.now(), resolved: null, pnl: 0,
+  });
+  writePlays(plays);
+  return plays;
+}
+
+// Polymarket payout: YES bought at p pays 1 per share if YES wins → return
+// stake*(1-p)/p; a loss is -stake.
+export function resolvePlays(results: { id: string; winner: "YES" | "NO" | null }[]): Play[] {
+  const plays = readPlays();
+  const winners = new Map(results.map((r) => [r.id, r.winner] as const));
+  let changed = false;
+  const arr = plays.map((p) => {
+    if (p.resolved != null) return p;
+    const w = winners.get(p.marketId);
+    if (!w) return p;
+    changed = true;
+    const won = p.side === w;
+    const pnl = won ? p.stake * (1 - p.entryPrice) / p.entryPrice : -p.stake;
+    return { ...p, resolved: (won ? "WON" : "LOST") as "WON" | "LOST", resolvedAt: Date.now(), pnl: Math.round(pnl * 100) / 100 };
+  });
+  if (changed) writePlays(arr);
+  return arr;
+}
+
+export interface PlayStats {
+  bankroll: number; realizedPnl: number; openExposure: number;
+  taken: number; resolved: number; won: number; winRate: number | null; weekPnl: number;
+}
+const r2 = (n: number) => Math.round(n * 100) / 100;
+export function playStats(plays: Play[]): PlayStats {
+  const resolved = plays.filter((p) => p.resolved);
+  const realizedPnl = resolved.reduce((s, p) => s + p.pnl, 0);
+  const openExposure = plays.filter((p) => p.resolved == null).reduce((s, p) => s + p.stake, 0);
+  const won = resolved.filter((p) => p.resolved === "WON").length;
+  const weekAgo = Date.now() - 7 * 86400000;
+  const weekPnl = resolved.filter((p) => (p.resolvedAt ?? p.takenAt) >= weekAgo).reduce((s, p) => s + p.pnl, 0);
+  return {
+    bankroll: r2(BANKROLL_START + realizedPnl),
+    realizedPnl: r2(realizedPnl),
+    openExposure: r2(openExposure),
+    taken: plays.length, resolved: resolved.length, won,
+    winRate: resolved.length ? Math.round((won / resolved.length) * 100) : null,
+    weekPnl: r2(weekPnl),
+  };
+}

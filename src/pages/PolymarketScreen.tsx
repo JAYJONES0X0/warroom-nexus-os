@@ -1,525 +1,258 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePolymarkets, PolyMarket } from "@/hooks/usePolymarkets";
-import { getRecord, logMarkets, applyResolutions, computeStats, type TrackEntry } from "@/lib/trackRecord";
-import { useWorldMonitorMarkets } from "@/hooks/useWorldMonitorMarkets";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroContextPanel } from "@/components/MacroContextPanel";
+import { marketCopy } from "@/lib/marketCopy";
+import {
+  getRecord, logMarkets, applyResolutions,
+  getPlays, logPlay, resolvePlays, playStats,
+  type TrackEntry, type Play,
+} from "@/lib/trackRecord";
 
-// ─── Classification helpers ───────────────────────────────────────────────────
-// Honest structural tags (set server-side). The market price IS the consensus
-// probability — we describe what a market is, never a fabricated mispricing.
+// ─── helpers ───────────────────────────────────────────────────────────────
 const TAG_COLOR: Record<string, string> = {
-  ARB: "#22d3ee", CONTESTED: "#f59e0b", CONSENSUS: "#94a3b8",
-  LONGSHOT: "#a855f7", THIN: "#6b7280", OPEN: "#64748b",
+  ARB: "#22d3ee", CONTESTED: "#f59e0b", CONSENSUS: "#94a3b8", LONGSHOT: "#a855f7", THIN: "#6b7280", OPEN: "#64748b",
 };
-const TAG_SHORT: Record<string, string> = {
-  ARB: "ARB", CONTESTED: "50/50", CONSENSUS: "SET",
-  LONGSHOT: "LEAN", THIN: "THIN", OPEN: "OPEN",
-};
-const tagColor = (t: string): string => TAG_COLOR[t] ?? TAG_COLOR.OPEN;
-const tagShort = (t: string): string => TAG_SHORT[t] ?? TAG_SHORT.OPEN;
+const tagColor = (t: string) => TAG_COLOR[t] ?? TAG_COLOR.OPEN;
+const money = (n: number) => `£${n.toFixed(2)}`;
+const cents = (p: number) => `${Math.round(p * 100)}¢`;
 
-// Honest one-paragraph read. Only ARB carries a real, structural edge.
-function marketRead(m: PolyMarket): string {
-  const yes = Math.round(m.yesPrice * 100);
-  const sum = m.yesPrice + m.noPrice;
-  const liq = m.liquidity >= 1_000_000 ? `$${(m.liquidity / 1_000_000).toFixed(2)}M` : `$${(m.liquidity / 1000).toFixed(0)}K`;
-  switch (m.edge) {
-    case "ARB":       return `Outcome prices sum to ${(sum * 100).toFixed(1)}¢ — under $1.00. Buying YES + NO locks ~${((1 - sum) / sum * 100).toFixed(1)}% regardless of result. A real, structural edge.`;
-    case "CONTESTED": return `Genuine toss-up — market implies YES ${yes}%. This is where fresh information actually moves price; watch news and whale flow. No standing edge, but the highest informational value.`;
-    case "CONSENSUS": return `Strongly priced at YES ${yes}%. The crowd has largely decided — little left to win unless you hold a contrarian thesis the market hasn't seen.`;
-    case "LONGSHOT":  return `Asymmetric lean — market implies YES ${yes}%. Small stake, large payoff if consensus is wrong, but the base rate favors the crowd.`;
-    case "THIN":      return `Only ${liq} liquidity — you likely can't get filled at meaningful size. Treat as untradeable however tempting the price looks.`;
-    default:          return `Tradeable with no structural edge — market implies YES ${yes}%. The price is your best probability estimate.`;
-  }
+// Stake = bankroll × your risk % (set in Settings, default 4%).
+function getRiskPct(): number {
+  try {
+    const s = localStorage.getItem("warroom.prefs");
+    if (s) { const r = parseFloat(JSON.parse(s).risk); if (r > 0 && r <= 20) return r; }
+  } catch { /* ignore */ }
+  return 4;
 }
 
-// ─── Market row ───────────────────────────────────────────────────────────────
-const MarketRow = ({
-  market, selected, onClick,
-}: { market: PolyMarket; selected: boolean; onClick: () => void }) => {
-  const ec  = tagColor(market.edge);
-  const bar = Math.min(100, (market.volume24h / 500_000) * 100);
+// "This week's plays" — markets that fit the game: real toss-ups + true arbs,
+// enough liquidity to fill, resolving soon. Ranked by tradeability score.
+function pickPlays(markets: PolyMarket[]): PolyMarket[] {
+  return markets
+    .filter((m) => (m.edge === "CONTESTED" || m.edge === "ARB") && m.liquidity >= 100_000 && (m.daysLeft == null || m.daysLeft <= 14))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+}
+
+// ─── play action card ────────────────────────────────────────────────────────
+const PlayCard = ({ m, stake, onTake }: { m: PolyMarket; stake: number; onTake: (m: PolyMarket, side: "YES" | "NO") => void }) => {
+  const c = marketCopy(m);
+  const col = tagColor(m.edge);
+  const [taken, setTaken] = useState<"YES" | "NO" | null>(null);
+  const take = (side: "YES" | "NO") => { onTake(m, side); setTaken(side); setTimeout(() => setTaken(null), 2200); };
 
   return (
-    <div
-      onClick={onClick}
-      className="px-3 py-2.5 cursor-pointer border-b transition-all"
-      style={{
-        borderColor: "rgba(255,255,255,0.04)",
-        background: selected ? "rgba(147,51,234,0.08)" : "transparent",
-      }}
-    >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="text-[10px] font-mono leading-tight text-white/70 line-clamp-2 flex-1"
-          style={{ color: selected ? "rgba(255,255,255,0.85)" : undefined }}>
-          {market.question}
+    <div className="rounded-2xl p-5 border" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="text-[15px] font-black text-white leading-snug">{c.call}</div>
+        <span className="shrink-0 text-[9px] font-black uppercase px-2 py-1 rounded" style={{ color: col, background: `${col}1a`, border: `1px solid ${col}33` }}>{m.edge}</span>
+      </div>
+      <div className="text-[11px] text-white/45 font-mono leading-relaxed mb-1">{m.question}</div>
+      <div className="text-[11px] text-white/55 font-mono leading-relaxed mb-3">{c.why}</div>
+
+      <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 mb-3">
+        <div>
+          <div className="text-[9px] text-white/30 uppercase font-mono">Suggested stake</div>
+          <div className="text-xl font-black text-white">{money(stake)}</div>
         </div>
-        <div className="shrink-0 flex items-center gap-1.5">
-          <div className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
-            style={{ color: ec, background: `${ec}18`, border: `1px solid ${ec}30` }}>
-            {tagShort(market.edge)}
-          </div>
-          <div className="text-[8px] text-white/20 font-mono">
-            Score: {Math.round(market.score)}
-          </div>
+        <div className="text-right max-w-[60%]">
+          <div className="text-[9px] text-white/30 uppercase font-mono mb-0.5">Discipline</div>
+          <div className="text-[10px] text-white/40 font-mono leading-tight">{c.discipline}</div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-white/30 font-mono">YES</span>
-          <span className="text-[10px] font-black text-emerald-400 font-mono">{(market.yesPrice * 100).toFixed(1)}¢</span>
-          <span className="text-white/15 text-[8px]">·</span>
-          <span className="text-[9px] text-white/30 font-mono">NO</span>
-          <span className="text-[10px] font-black text-red-400 font-mono">{(market.noPrice * 100).toFixed(1)}¢</span>
+
+      {taken ? (
+        <div className="text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+          ✓ Logged {taken} · {money(stake)} — place it on Polymarket
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <span className="text-[8px] text-white/25 font-mono">Vol:</span>
-            <span className="text-[9px] text-white/60 font-mono">
-              ${market.volume24h >= 1_000_000
-                ? `${(market.volume24h / 1_000_000).toFixed(2)}M`
-                : `${(market.volume24h / 1000).toFixed(0)}K`}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[8px] text-white/25 font-mono">Liq:</span>
-            <span className="text-[9px] text-white/60 font-mono">
-              ${market.liquidity >= 1_000_000
-                ? `${(market.liquidity / 1_000_000).toFixed(2)}M`
-                : `${(market.liquidity / 1000).toFixed(0)}K`}
-            </span>
-          </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => take("YES")} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-all hover:-translate-y-0.5" style={{ background: "rgba(16,185,129,0.08)", borderColor: "rgba(16,185,129,0.3)", color: "#10b981" }}>
+            Take YES · {cents(m.yesPrice)}
+          </button>
+          <button onClick={() => take("NO")} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-all hover:-translate-y-0.5" style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.3)", color: "#ef4444" }}>
+            Take NO · {cents(m.noPrice)}
+          </button>
         </div>
-      </div>
-      {market.daysLeft !== null && (
-        <div className="text-[8px] text-white/20 font-mono mt-0.5">{market.daysLeft}d left</div>
       )}
     </div>
   );
 };
 
-// ─── Macro context helper ───────────────────────────────────────────────────
-function getRelevantMacroIndicators(question: string, marketQuotes: any[], cryptoQuotes: any[]) {
-  const lowerQ = question.toLowerCase();
-  const indicators: { label: string; value: string; change: string; color: string }[] = [];
-  
-  const formatPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
-  const getColor = (n: number) => n >= 0 ? 'text-green-400' : 'text-red-400';
-  
-  // Crypto markets
-  if (lowerQ.includes('bitcoin') || lowerQ.includes('btc') || lowerQ.includes('crypto')) {
-    const btc = cryptoQuotes.find(c => c.id === 'bitcoin');
-    if (btc) {
-      indicators.push({
-        label: 'Bitcoin',
-        value: `$${(btc.price / 1000).toFixed(1)}K`,
-        change: formatPct(btc.changePercent24h),
-        color: getColor(btc.changePercent24h)
-      });
-    }
-  }
-  
-  // Equity markets
-  if (lowerQ.includes('s&p') || lowerQ.includes('stock') || lowerQ.includes('market')) {
-    const spx = marketQuotes.find(m => m.symbol === 'SPX');
-    if (spx) {
-      indicators.push({
-        label: 'S&P 500',
-        value: spx.price.toFixed(0),
-        change: formatPct(spx.changePercent),
-        color: getColor(spx.changePercent)
-      });
-    }
-  }
-  
-  // Gold/commodities
-  if (lowerQ.includes('gold') || lowerQ.includes('commodity')) {
-    const gold = marketQuotes.find(m => m.symbol === 'GC');
-    if (gold) {
-      indicators.push({
-        label: 'Gold',
-        value: `$${gold.price.toFixed(0)}`,
-        change: formatPct(gold.changePercent),
-        color: getColor(gold.changePercent)
-      });
-    }
-  }
-  
-  // Oil/energy
-  if (lowerQ.includes('oil') || lowerQ.includes('crude') || lowerQ.includes('energy')) {
-    const oil = marketQuotes.find(m => m.symbol === 'CL');
-    if (oil) {
-      indicators.push({
-        label: 'WTI Oil',
-        value: `$${oil.price.toFixed(2)}`,
-        change: formatPct(oil.changePercent),
-        color: getColor(oil.changePercent)
-      });
-    }
-  }
-  
-  return indicators;
-}
-
-// ─── Market detail / signal panel ────────────────────────────────────────────
-const MarketDetail = ({ market }: { market: PolyMarket }) => {
-  const ec         = tagColor(market.edge);
-  const composite  = Math.round(market.score);
-  const impliedYes = Math.round(market.yesPrice * 100);
-  const { marketQuotes, cryptoQuotes } = useWorldMonitorMarkets();
-  const macroIndicators = useMemo(() => 
-    getRelevantMacroIndicators(market.question, marketQuotes, cryptoQuotes),
-    [market.question, marketQuotes, cryptoQuotes]
-  );
-
-  return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-      {/* Question */}
-      <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5">
-        <div className="text-[9px] text-violet-400/60 uppercase tracking-[0.2em] font-mono mb-2">ACTIVE MARKET</div>
-        <div className="text-sm font-bold text-white/85 leading-snug mb-4">{market.question}</div>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            ["YES Price", `${(market.yesPrice * 100).toFixed(1)}¢`, "#10b981"],
-            ["NO Price",  `${(market.noPrice  * 100).toFixed(1)}¢`, "#ef4444"],
-            ["24h Volume", market.volume24h >= 1_000_000
-              ? `$${(market.volume24h / 1_000_000).toFixed(2)}M`
-              : `$${(market.volume24h / 1000).toFixed(0)}K`, "rgba(255,255,255,0.6)"],
-            ["Liquidity", market.liquidity >= 1_000_000
-              ? `$${(market.liquidity / 1_000_000).toFixed(2)}M`
-              : `$${(market.liquidity / 1000).toFixed(0)}K`, "rgba(255,255,255,0.6)"],
-          ].map(([l, v, c]) => (
-            <div key={l as string} className="bg-white/[0.02] rounded-xl p-3 border border-white/[0.05]">
-              <div className="text-[9px] text-white/25 font-mono uppercase mb-1">{l}</div>
-              <div className="text-sm font-black" style={{ color: c as string }}>{v}</div>
-            </div>
-          ))}
-        </div>
-        {market.daysLeft !== null && (
-          <div className="mt-3 text-[10px] text-white/30 font-mono">
-            ⏱ {market.daysLeft} days until resolution
-          </div>
-        )}
-      </div>
-
-      {/* EXA-POLY signal */}
-      <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-[9px] text-violet-400/60 uppercase tracking-[0.2em] font-mono">EXA-POLY SIGNAL</div>
-          <div className="text-xs font-black uppercase px-3 py-1 rounded-lg border"
-            style={{ color: ec, background: `${ec}15`, borderColor: `${ec}35` }}>
-            {market.edge}
-          </div>
-        </div>
-
-        {/* Score + Breakdown */}
-        <div className="flex flex-col items-center gap-4 mb-5">
-          <div className="text-center">
-            <div className="text-6xl font-black tabular-nums leading-none"
-              style={{ color: ec, textShadow: `0 0 30px ${ec}60` }}>
-              {composite}
-            </div>
-            <div className="text-[10px] text-white/30 font-mono mt-1">TRADEABILITY SCORE / 100</div>
-          </div>
-          <div className="w-full space-y-2">
-            <div className="text-[9px] text-white/40 uppercase font-mono mb-1">Signal Breakdown</div>
-            {[
-              ["Volume Influence",    Math.min(100, (market.volume24h / 1_000_000) * 60 + 20)],
-              ["Liquidity Strength",  Math.min(100, (market.liquidity  / 500_000)  * 50 + 15)],
-              ["Contestedness", Math.round((1 - Math.abs(market.yesPrice - 0.5) * 2) * 100)],
-              ["Time Horizon Risk", market.daysLeft ? Math.min(100, (30 / market.daysLeft) * 60 + 20) : 50],
-            ].map(([label, val]) => (
-              <div key={label as string}>
-                <div className="flex justify-between text-[8px] font-mono mb-0.5">
-                  <span className="text-white/30 uppercase">{label}</span>
-                  <span className="text-white/40">{Math.round(val as number)}%</span>
-                </div>
-                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all"
-                    style={{ width: `${Math.round(val as number)}%`, background: ec, opacity: 0.7 }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Market read — honest classification + implied probability, no fabricated edge */}
-        <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] text-white/30 font-mono uppercase tracking-wider">Market-implied probability</span>
-            <span className="text-[10px] font-mono">
-              <span className="text-emerald-400 font-black">YES {impliedYes}%</span>
-              <span className="text-white/20 mx-1">/</span>
-              <span className="text-red-400 font-black">NO {100 - impliedYes}%</span>
-            </span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden bg-red-500/25 mb-3">
-            <div className="h-full bg-emerald-500/70" style={{ width: `${impliedYes}%` }} />
-          </div>
-          <div className="text-[10px] font-mono leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.55)" }}>
-            <span className="font-black uppercase mr-1.5" style={{ color: ec }}>{market.edge}</span>
-            {marketRead(market)}
-          </div>
-          {market.edge === "ARB" ? (
-            <div className="text-center border-t border-white/[0.06] pt-3">
-              <div className="text-[9px] text-white/30 font-mono uppercase mb-1">Locked arbitrage return</div>
-              <div className="text-3xl font-black" style={{ color: ec }}>
-                {(((1 - (market.yesPrice + market.noPrice)) / (market.yesPrice + market.noPrice)) * 100).toFixed(1)}%
-              </div>
-              <div className="text-[8px] text-white/20 font-mono">buy YES + NO · capped by available liquidity</div>
-            </div>
-          ) : (
-            <div className="text-[9px] text-white/30 font-mono leading-relaxed text-center border-t border-white/[0.06] pt-3">
-              No independent edge — the market price is our best probability estimate.
-              Size from your own conviction, not ours.
-            </div>
-          )}
-        </div>
-        <div className="mt-3 text-[9px] text-white/15 font-mono text-center">
-          The market price is the consensus probability. We surface structure & tradeability, not a private edge.
-        </div>
-      </div>
-
-      {/* Macro Context — worldmonitor integration */}
-      {macroIndicators.length > 0 && (
-        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="text-[9px] text-violet-400/60 uppercase tracking-[0.2em] font-mono">Macro Context</div>
-            <div className="flex-1 h-px bg-white/[0.06]" />
-            <div className="text-[8px] text-white/20 font-mono">worldmonitor</div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {macroIndicators.map((ind) => (
-              <div key={ind.label} className="bg-white/[0.02] rounded-xl p-3 border border-white/[0.05]">
-                <div className="text-[8px] text-white/30 font-mono uppercase mb-1">{ind.label}</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-white/80">{ind.value}</span>
-                  <span className={`text-[9px] font-medium ${ind.color}`}>{ind.change}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 text-[8px] text-white/20 font-mono text-center">
-            Relevant macro indicators for this market context
-          </div>
-        </div>
-      )}
-
-      {/* Disclaimer */}
-      <div className="p-3 bg-white/[0.02] border border-white/[0.04] rounded-xl">
-        <div className="text-[9px] text-white/15 font-mono leading-relaxed text-center">
-          EXA-POLY is an intelligence layer only. All signals are for informational purposes.<br />
-          Execute positions through your own Polymarket account. You are responsible for all decisions.
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
+// ─── main ────────────────────────────────────────────────────────────────────
 const PolymarketScreen = () => {
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
   const { markets, fetchedAt, loading, error } = usePolymarkets();
-  const [selected, setSelected]  = useState<PolyMarket | null>(null);
-  const [sortBy,   setSortBy]    = useState<"score" | "volume" | "liquidity">("score");
-  const [filter,   setFilter]    = useState<"all" | "contested" | "consensus" | "arb">("all");
-  const [record,   setRecord]    = useState<TrackEntry[]>(getRecord);
+  const [plays, setPlays] = useState<Play[]>(getPlays);
+  const [, setRecord] = useState<TrackEntry[]>(getRecord);
+  const [showAll, setShowAll] = useState(false);
+  const riskPct = getRiskPct();
 
-  // Track record: log every classified market, then stamp the real outcome once it settles.
+  // Log every classified market, and resolve both reads and plays as they settle.
   useEffect(() => {
     if (markets.length) {
       setRecord(logMarkets(markets.map((m) => ({ id: m.id, question: m.question, edge: m.edge, yesPrice: m.yesPrice, daysLeft: m.daysLeft }))));
     }
-    const pending = getRecord().filter((e) => e.resolved == null && !e.id.startsWith("seed-")).map((e) => e.id).slice(0, 30);
+    const pending = Array.from(new Set([
+      ...getRecord().filter((e) => e.resolved == null && !e.id.startsWith("seed-")).map((e) => e.id),
+      ...getPlays().filter((p) => p.resolved == null).map((p) => p.marketId),
+    ])).slice(0, 30);
     if (pending.length) {
       fetch(`/api/resolve?ids=${pending.join(",")}`).then((r) => r.json()).then((d) => {
-        if (d.results?.length) setRecord(applyResolutions(d.results));
+        if (d.results?.length) { setRecord(applyResolutions(d.results)); setPlays(resolvePlays(d.results)); }
       }).catch(() => { /* ignore */ });
     }
   }, [markets]);
 
-  const trackStats = computeStats(record);
+  const stats = playStats(plays);
+  const stake = Math.max(1, Math.round((stats.bankroll * riskPct) / 100 * 100) / 100);
+  const weekPlays = useMemo(() => pickPlays(markets), [markets]);
+  const take = (m: PolyMarket, side: "YES" | "NO") => setPlays(logPlay(m, side, stake));
 
-  const sorted = useMemo(() => {
-    let m = [...markets];
-    if (filter === "contested") m = m.filter(x => x.edge === "CONTESTED");
-    if (filter === "consensus") m = m.filter(x => x.edge === "CONSENSUS");
-    if (filter === "arb")       m = m.filter(x => x.edge === "ARB");
-    m.sort((a, b) => sortBy === "score" ? b.score - a.score : sortBy === "volume" ? b.volume24h - a.volume24h : b.liquidity - a.liquidity);
-    return m;
-  }, [markets, sortBy, filter]);
-
-  const activeMarket = selected ?? sorted[0] ?? null;
-  const marketsLoaded = markets.length > 0;
+  const openPlays = plays.filter((p) => p.resolved == null).slice().reverse();
+  const donePlays = plays.filter((p) => p.resolved).slice().reverse();
+  const age = fetchedAt ? Math.max(0, Math.floor((Date.now() - fetchedAt) / 1000)) : null;
+  const pnlColor = stats.realizedPnl > 0 ? "#10b981" : stats.realizedPnl < 0 ? "#ef4444" : "rgba(255,255,255,0.6)";
 
   const agentSystem = `You are NEXUS-P, the EXA Polymarket Intelligence agent — a disciplined, honest prediction-market analyst.
-
-CORE TRUTH: the market price IS the consensus probability (YES 62¢ = the market thinks ~62%). NEVER call a side "undervalued" or "overvalued" without a SPECIFIC, evidenced reason the market is wrong (breaking news, a base rate the crowd ignores, whale/orderbook flow). Absent that, the honest answer is "priced fairly — no edge."
-
-Classifications (structural, not directional):
-- ARB = outcome prices sum below $1.00 → a real, locked arbitrage edge.
-- CONTESTED = ~50/50 with volume → where fresh information moves price.
-- CONSENSUS = strongly priced in → little left to win.
-- LONGSHOT = asymmetric lean → small stake, base rate favors the crowd.
-- THIN = too little liquidity to trade.
-
+CORE TRUTH: the market price IS the consensus probability. Never call a side "undervalued" without a SPECIFIC, evidenced reason the market is wrong (breaking news, base rate, whale flow). Otherwise the honest answer is "priced fairly — no edge."
+The operator runs a £100 bankroll with disciplined small stakes (${riskPct}% per play), process over outcome.
 Live markets tracked: ${markets.length}.
-${markets.slice(0, 5).map(m => `"${m.question.slice(0, 56)}..." impliedYES:${(m.yesPrice*100).toFixed(0)}% ${m.edge} score:${Math.round(m.score)}`).join('\n')}
-
-Be sharp and honest. State the implied probability. Only claim an edge if you can name the concrete reason. No fabricated theses.`;
-
-  const autoPrompt = activeMarket
-    ? `Analyze: "${activeMarket.question}". Market implies YES ${(activeMarket.yesPrice * 100).toFixed(0)}% / NO ${(activeMarket.noPrice * 100).toFixed(0)}%. Volume: $${activeMarket.volume24h >= 1_000_000 ? (activeMarket.volume24h/1_000_000).toFixed(1)+'M' : (activeMarket.volume24h/1000).toFixed(0)+'K'}. Days left: ${activeMarket.daysLeft ?? 'unknown'}. Classification: ${activeMarket.edge}. Is there a concrete, evidenced reason to fade consensus, or is this priced fairly?`
-    : "Scan the markets. Flag any real arbitrage, and any contested market where fresh information could move price. Be honest where there's no edge.";
-
-  const age = fetchedAt ? Math.max(0, Math.floor((Date.now() - fetchedAt) / 1000)) : null;
+Be sharp and plain. Help pick where a disciplined stake has the best shot. No fabricated edges.`;
+  const autoPrompt = weekPlays[0]
+    ? `My top play right now is "${weekPlays[0].question}" (${weekPlays[0].edge}, implied YES ${Math.round(weekPlays[0].yesPrice * 100)}%). In plain English: is there a concrete reason to lean a side, or is it a pure coin-flip I size small and hold?`
+    : "Scan the board. Where does a disciplined small stake have the best shot this week, and where is there genuinely no edge?";
 
   return (
     <div className="fixed inset-0 bg-[#060411] text-white flex flex-col" style={{ fontFamily: "monospace" }}>
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.07] shrink-0 bg-[#06041188]">
-        <button onClick={() => navigate("/")}
-          className="text-[10px] text-white/30 hover:text-white/60 transition-colors uppercase tracking-wider font-mono">
-          ← NEXUS
-        </button>
+        <button onClick={() => navigate("/")} className="text-[10px] text-white/30 hover:text-white/60 transition-colors uppercase tracking-wider font-mono">← NEXUS</button>
         <div className="w-px h-4 bg-white/10" />
         <div className="text-[11px] font-black text-violet-400 uppercase tracking-widest">POLYMARKET NEXUS</div>
-        <div className="text-[9px] text-white/20 font-mono">Prediction Intelligence · EXA-POLY Engine</div>
+        <div className="text-[9px] text-white/20 font-mono">Your £100 play desk</div>
         <div className="ml-auto flex items-center gap-3">
-          {age !== null && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-400" style={{ boxShadow: "0 0 5px #a855f7" }} />
-              <span className="text-[9px] text-white/30 font-mono">
-                {age < 60 ? `${age}s ago` : `${Math.floor(age / 60)}m ago`}
-              </span>
-            </div>
-          )}
-          {loading && <span className="text-[9px] text-violet-400/60 font-mono animate-pulse">LOADING...</span>}
+          {age !== null && <span className="text-[9px] text-white/30 font-mono">{age < 60 ? `${age}s ago` : `${Math.floor(age / 60)}m ago`}</span>}
+          {loading && <span className="text-[9px] text-violet-400/60 font-mono animate-pulse">LOADING…</span>}
           {error && <span className="text-[9px] text-red-400/70 font-mono">API ERR</span>}
-          <div className="text-[9px] text-white/20 font-mono">{markets.length} MARKETS</div>
+          <span className="text-[9px] text-white/20 font-mono">{markets.length} MARKETS</span>
         </div>
       </div>
 
-      {/* ── Body: left list | center detail | right agent ── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Left: market list */}
-        <div className="w-[300px] flex flex-col border-r border-white/[0.06] shrink-0">
-          {/* Sort/filter controls */}
-          <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
-            <div className="flex gap-1 mb-2">
-              {(["score", "volume", "liquidity"] as const).map(s => (
-                <button key={s} onClick={() => setSortBy(s)}
-                  className="flex-1 text-[8px] font-black uppercase py-0.5 rounded transition-all"
-                  style={sortBy === s
-                    ? { background: "rgba(147,51,234,0.2)", color: "#a855f7", border: "1px solid rgba(147,51,234,0.3)" }
-                    : { background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  {s}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1">
-              {(["all", "contested", "consensus", "arb"] as const).map(f => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className="flex-1 text-[8px] font-black uppercase py-0.5 rounded transition-all"
-                  style={filter === f
-                    ? { background: "rgba(147,51,234,0.15)", color: "#c084fc", border: "1px solid rgba(147,51,234,0.25)" }
-                    : { background: "transparent", color: "rgba(255,255,255,0.2)", border: "1px solid transparent" }}>
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* List */}
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {loading && markets.length === 0 && (
-              <div className="text-center text-white/20 font-mono text-[10px] py-12">
-                Fetching markets...
-              </div>
-            )}
-            {sorted.map(m => (
-              <MarketRow
-                key={m.id}
-                market={m}
-                selected={activeMarket?.id === m.id}
-                onClick={() => setSelected(m)}
-              />
-            ))}
-          </div>
+      {/* Bankroll header */}
+      <div className="shrink-0 px-6 py-3 border-b border-white/[0.07] bg-white/[0.015] flex items-center gap-8 flex-wrap">
+        <div>
+          <div className="text-[9px] text-white/30 uppercase tracking-wider font-mono">Bankroll</div>
+          <div className="text-3xl font-black tabular-nums" style={{ color: pnlColor }}>{money(stats.bankroll)}</div>
         </div>
+        {([
+          ["P&L", `${stats.realizedPnl >= 0 ? "+" : ""}${money(stats.realizedPnl)}`, pnlColor],
+          ["Open", money(stats.openExposure), "rgba(255,255,255,0.7)"],
+          ["Plays", `${stats.resolved}/${stats.taken}`, "rgba(255,255,255,0.7)"],
+          ["Win rate", stats.winRate != null ? `${stats.winRate}%` : "—", stats.winRate != null && stats.winRate >= 50 ? "#10b981" : "rgba(255,255,255,0.7)"],
+        ] as const).map(([l, v, c]) => (
+          <div key={l}>
+            <div className="text-[9px] text-white/30 uppercase tracking-wider font-mono">{l}</div>
+            <div className="text-lg font-black tabular-nums" style={{ color: c }}>{v}</div>
+          </div>
+        ))}
+        <div className="ml-auto text-[10px] text-white/35 font-mono max-w-[360px] leading-tight">
+          Outcome isn't yours to set — your action is. <span className="text-white/50">Max {riskPct}% a play · never chase · hold the process.</span>
+        </div>
+      </div>
 
-        {/* Center: market detail */}
-        <div className="flex-1 overflow-hidden p-5 flex flex-col">
-          {activeMarket ? (
-            <MarketDetail market={activeMarket} />
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main column */}
+        <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: "thin" }}>
+          {/* This week's plays */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-violet-400/70 font-mono">This Week's Plays</div>
+            <div className="text-[9px] text-white/25 font-mono">toss-ups & arbs · deep · resolving soon · {money(stake)} each</div>
+          </div>
+          {weekPlays.length === 0 ? (
+            <div className="text-[11px] text-white/25 font-mono py-8 text-center border border-white/[0.05] rounded-2xl">
+              {loading ? "Scanning the board…" : "No clean plays on the board right now — patience is a position. Check back next refresh."}
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-white/15 font-mono text-sm">
-              {loading ? "Loading markets..." : "No markets match this filter"}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {weekPlays.map((m) => <PlayCard key={m.id} m={m} stake={stake} onTake={take} />)}
             </div>
           )}
-        </div>
 
-        {/* Right: NEXUS-P agent + Macro Context — remounts when markets load so autoPrompt has real data */}
-        <div className="w-[280px] border-l border-white/[0.06] shrink-0 flex flex-col overflow-hidden">
-          {/* Macro Context Panel */}
-          <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
-            <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">Macro Context</div>
-            <div className="text-[8px] text-white/20 font-mono">Live market indicators</div>
-          </div>
-          <div className="px-3 py-3 border-b border-white/[0.06] shrink-0 overflow-y-auto" style={{ maxHeight: '260px' }}>
-            <MacroContextPanel />
-          </div>
-
-          {/* Track Record — our reads vs the real outcomes */}
-          <div className="px-3 py-2.5 border-b border-white/[0.06] shrink-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <div>
-                <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">Track Record</div>
-                <div className="text-[8px] text-white/20 font-mono">read vs outcome</div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-black text-white tabular-nums">{trackStats.resolved}/{trackStats.tracked}</div>
-                <div className="text-[8px] text-white/25 font-mono">resolved / tracked</div>
-              </div>
+          {/* Your plays */}
+          <div className="text-[11px] uppercase tracking-[0.2em] text-violet-400/70 font-mono mt-8 mb-3">Your Plays</div>
+          {plays.length === 0 ? (
+            <div className="text-[11px] text-white/25 font-mono py-6 text-center border border-white/[0.05] rounded-2xl">
+              No plays yet — take one above to start your £100 run. Log it here, place the real bet on Polymarket.
             </div>
-            {trackStats.favHitRate != null && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[8px] text-white/30 font-mono uppercase">Favorite held</span>
-                <div className="flex-1 h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${trackStats.favHitRate}%`, background: "#10b981" }} />
+          ) : (
+            <div className="space-y-1.5">
+              {openPlays.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/[0.05] bg-white/[0.02] text-[11px] font-mono">
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}>OPEN</span>
+                  <span className="text-white/60 truncate flex-1">{p.question}</span>
+                  <span className="text-white/40">{p.side} @ {cents(p.entryPrice)}</span>
+                  <span className="text-white/70 font-black">{money(p.stake)}</span>
                 </div>
-                <span className="text-[9px] font-black text-emerald-400">{trackStats.favHitRate}%</span>
-              </div>
-            )}
-            <div className="space-y-1 max-h-[96px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-              {record.filter((e) => e.resolved).slice(-5).reverse().map((e) => {
-                const favYes = e.impliedYes >= 0.5;
-                const hit = (favYes && e.resolved === "YES") || (!favYes && e.resolved === "NO");
+              ))}
+              {donePlays.map((p) => {
+                const won = p.resolved === "WON";
+                const c = won ? "#10b981" : "#ef4444";
                 return (
-                  <div key={e.id} className="flex items-center gap-1.5 text-[8px] font-mono" title={e.note ?? `${e.classification} · implied YES ${Math.round(e.impliedYes * 100)}% → ${e.resolved}`}>
-                    <span style={{ color: hit ? "#10b981" : "#ef4444" }}>{hit ? "✓" : "✗"}</span>
-                    <span className="text-white/40 truncate flex-1">{e.question}</span>
-                    <span className="text-white/25 shrink-0">{Math.round(e.impliedYes * 100)}%→{e.resolved}</span>
+                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-[11px] font-mono" style={{ borderColor: `${c}22`, background: `${c}0a` }}>
+                    <span className="font-black" style={{ color: c }}>{won ? "✓" : "✗"}</span>
+                    <span className="text-white/55 truncate flex-1">{p.question}</span>
+                    <span className="text-white/40">{p.side} @ {cents(p.entryPrice)}</span>
+                    <span className="font-black" style={{ color: c }}>{p.pnl >= 0 ? "+" : ""}{money(p.pnl)}</span>
                   </div>
                 );
               })}
-              {record.filter((e) => e.resolved).length === 0 && (
-                <div className="text-[8px] text-white/20 font-mono">logging predictions — outcomes appear as markets settle</div>
-              )}
             </div>
-          </div>
+          )}
 
-          {/* Agent Panel */}
+          {/* All markets (browse) */}
+          <button onClick={() => setShowAll((s) => !s)} className="text-[10px] text-white/35 hover:text-white/60 font-mono uppercase tracking-wider mt-8 mb-2">
+            {showAll ? "▾ Hide" : "▸ Browse"} all {markets.length} markets
+          </button>
+          {showAll && (
+            <div className="space-y-1">
+              {[...markets].sort((a, b) => b.score - a.score).map((m) => (
+                <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.04] bg-white/[0.015] text-[10px] font-mono">
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded shrink-0" style={{ color: tagColor(m.edge), background: `${tagColor(m.edge)}14` }}>{m.edge}</span>
+                  <span className="text-white/55 truncate flex-1">{m.question}</span>
+                  <span className="text-white/30 shrink-0">YES {cents(m.yesPrice)}</span>
+                  <button onClick={() => take(m, "YES")} className="text-[8px] font-black px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>YES</button>
+                  <button onClick={() => take(m, "NO")} className="text-[8px] font-black px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>NO</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-8 text-[9px] text-white/15 font-mono text-center leading-relaxed">
+            Intelligence layer only. The market price is the consensus probability — we make the play clear, we don't beat the market.<br />
+            Place real bets on your own Polymarket account. You own every decision.
+          </div>
+        </div>
+
+        {/* Right rail */}
+        <div className="w-[300px] border-l border-white/[0.06] shrink-0 flex flex-col overflow-hidden">
+          <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
+            <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">Macro Context</div>
+            <div className="text-[8px] text-white/20 font-mono">live market indicators</div>
+          </div>
+          <div className="px-3 py-3 border-b border-white/[0.06] shrink-0 overflow-y-auto" style={{ maxHeight: "300px" }}>
+            <MacroContextPanel />
+          </div>
           <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
             <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">NEXUS-P AGENT</div>
-            <div className="text-[8px] text-white/20 font-mono">Prediction market intelligence</div>
+            <div className="text-[8px] text-white/20 font-mono">ask before you stake</div>
           </div>
           <div className="flex-1 overflow-hidden">
             <ScreenAgent
-              key={marketsLoaded ? "ready" : "wait"}
+              key={markets.length > 0 ? "ready" : "wait"}
               agentId="NEXUS-P"
               agentRole="Prediction Analyst"
               glowColor="#a855f7"
