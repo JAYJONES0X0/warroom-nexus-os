@@ -116,14 +116,16 @@ function riskAppetite(prices: Record<string, { changePct: number }>): { score: n
   return { score: round(score), note };
 }
 
-export function useEXAScores(pair = "EURUSD"): EXAScores {
-  const { prices } = usePrices();
-  const [scores, setScores] = useState<EXAScores>(EMPTY);
+// Pure scorer — the single source of truth shared by the single-pair hook and
+// the multi-asset scan, so they can never disagree on the same asset.
+export function computeEXAScores(
+  pair: string,
+  prices: Record<string, { price: number; changePct: number }>,
+): EXAScores {
+  const p = prices[pair];
+  if (!p) return EMPTY;
 
-  useEffect(() => {
-    const p = prices[pair];
-    if (!p) return;
-
+  {
     pushTick(pair, p.price);
     const stats = tickStats(pair);
     const ref = TYPICAL_DAILY_PCT[pair] ?? 0.8;
@@ -191,12 +193,38 @@ export function useEXAScores(pair = "EURUSD"): EXAScores {
       { label: "Session Liquidity", value: liquidity, note: session.name },
     ];
 
-    setScores({
+    return {
       technical, risk, sentiment, volatility, liquidity, composite, verdict,
       locks, session: session.name, bias, momentum, ticks: stats.n, factors,
       confirmation, winRate: brain?.winRate ?? null, expectancy: brain?.expectancy ?? null,
-    });
+    };
+  }
+}
+
+export function useEXAScores(pair = "EURUSD"): EXAScores {
+  const { prices } = usePrices();
+  const [scores, setScores] = useState<EXAScores>(EMPTY);
+
+  useEffect(() => {
+    if (!prices[pair]) return;
+    setScores(computeEXAScores(pair, prices));
   }, [prices, pair]);
 
   return scores;
+}
+
+export interface ScanRow { pair: string; scores: EXAScores; }
+
+// Live multi-asset scan — real EXA scores for every pair from one price feed.
+// Pass a stable (module-constant) `pairs` array to avoid re-running every render.
+export function useEXAScan(pairs: string[]): ScanRow[] {
+  const { prices } = usePrices();
+  const [scan, setScan] = useState<ScanRow[]>([]);
+
+  useEffect(() => {
+    const rows = pairs.filter((p) => prices[p]).map((p) => ({ pair: p, scores: computeEXAScores(p, prices) }));
+    setScan(rows);
+  }, [prices, pairs]);
+
+  return scan;
 }

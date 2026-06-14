@@ -3,17 +3,21 @@ import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { NexusTerminal } from "@/components/NexusTerminal";
 import { MacroCalendar } from "@/components/MacroCalendar";
 import { usePrices } from "@/hooks/usePrices";
+import { useEXAScan, type EXAScores } from "@/hooks/useEXAScores";
+import { useWorldMonitorMarkets } from "@/hooks/useWorldMonitorMarkets";
+import { ASSET_BRAIN } from "@/lib/warroomBrain";
 import intelligenceTexture from "@/assets/textures/intelligence-realistic.jpg";
 
-const PATTERNS = [
-  { id: 1, name: "BOS + FVG Confluence", asset: "EUR/USD", bias: "BULLISH", conf: 82, tf: "H4", status: "ACTIVE" },
-  { id: 2, name: "Liquidity Sweep Reversal", asset: "XAU/USD", bias: "BEARISH", conf: 71, tf: "H1", status: "FORMING" },
-  { id: 3, name: "Asian Range Breakout", asset: "GBP/USD", bias: "BULLISH", conf: 65, tf: "M15", status: "WATCH" },
-  { id: 4, name: "ICT Order Block Retest", asset: "NAS100", bias: "BEARISH", conf: 78, tf: "H1", status: "ACTIVE" },
-  { id: 5, name: "Kill Zone Accumulation", asset: "USD/JPY", bias: "BULLISH", conf: 58, tf: "H4", status: "WATCH" },
-];
+// Stable reference for the scan hook — every asset it ranks.
+const SCAN_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "GBPJPY", "AUDUSD", "NZDUSD", "XAUUSD", "BTCUSD", "NAS100", "SPX", "DXY"];
 
 const PAIRS_FOR_ARCHON = ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "BTCUSD"];
+
+const label = (pair: string) => ASSET_BRAIN[pair]?.label ?? pair;
+const STATUS = (v: EXAScores["verdict"]) =>
+  v === "AUTHORIZED" ? { word: "ACTIVE",  color: "#10b981" }
+  : v === "DELAY"    ? { word: "FORMING", color: "#f59e0b" }
+  :                    { word: "WATCH",   color: "rgba(255,255,255,0.3)" };
 
 function getSession() {
   const h = new Date().getUTCHours() + new Date().getUTCMinutes() / 60;
@@ -125,10 +129,13 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
 };
 
 const IntelligenceScreen = () => {
-  const [selected, setSelected] = useState<number>(1);
   const [tab, setTab] = useState("Patterns");
   const { prices } = usePrices();
-  const pattern = PATTERNS.find((p) => p.id === selected);
+  const { fearGreed } = useWorldMonitorMarkets();
+  const scan = useEXAScan(SCAN_PAIRS);
+  const ranked = [...scan].sort((a, b) => b.scores.composite - a.scores.composite);
+  const [selectedPair, setSelectedPair] = useState<string>("EURUSD");
+  const sel = ranked.find((r) => r.pair === selectedPair) ?? ranked[0];
 
   return (
     <PlanetPageLayout
@@ -138,39 +145,39 @@ const IntelligenceScreen = () => {
       screenName="INTELLIGENCE CORE"
       screenDesc="Pattern detection · ARCHON override protocol · EXA Terminal"
     >
-      {/* Pattern list */}
+      {/* Live scan — real EXA confluence across all assets, ranked */}
       <div className="space-y-2 mb-6">
-        {PATTERNS.map((p) => (
-          <div
-            key={p.id}
-            onClick={() => setSelected(p.id)}
-            className="p-4 rounded-xl cursor-pointer transition-all border"
-            style={{
-              background: selected === p.id ? "rgba(170,68,255,0.07)" : "rgba(255,255,255,0.02)",
-              borderColor: selected === p.id ? "rgba(170,68,255,0.35)" : "rgba(255,255,255,0.05)",
-            }}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-black text-white uppercase tracking-wide">{p.name}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{
-                background: p.status === "ACTIVE" ? "rgba(16,185,129,0.12)" : p.status === "FORMING" ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
-                color: p.status === "ACTIVE" ? "#10b981" : p.status === "FORMING" ? "#f59e0b" : "rgba(255,255,255,0.3)",
-              }}>{p.status}</span>
+        <div className="flex items-center justify-between px-1 mb-1">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-violet-400/60 font-mono">Live Scan</span>
+          <span className="text-[9px] text-white/25 font-mono">{ranked.length} assets · ranked by confluence</span>
+        </div>
+        {ranked.length === 0 && <div className="text-[10px] text-white/25 font-mono py-6 text-center">scanning markets…</div>}
+        {ranked.map(({ pair, scores }) => {
+          const st = STATUS(scores.verdict);
+          const isSel = sel?.pair === pair;
+          const bc = scores.bias === "BULLISH" ? "#10b981" : scores.bias === "BEARISH" ? "#ef4444" : "rgba(255,255,255,0.35)";
+          return (
+            <div key={pair} onClick={() => setSelectedPair(pair)}
+              className="p-4 rounded-xl cursor-pointer transition-all border"
+              style={{ background: isSel ? "rgba(170,68,255,0.07)" : "rgba(255,255,255,0.02)", borderColor: isSel ? "rgba(170,68,255,0.35)" : "rgba(255,255,255,0.05)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-black text-white uppercase tracking-wide">{label(pair)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] text-white/30 font-mono">{scores.locks.filter(Boolean).length}/4 locks</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: `${st.color}1f`, color: st.color }}>{st.word}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black" style={{ color: bc }}>{scores.bias}</span>
+                <span className="text-[10px] text-white/30 font-mono truncate flex-1">{scores.factors[0]?.note}</span>
+                <span className="text-[10px] font-mono text-white/40">{scores.composite}</span>
+              </div>
+              <div className="mt-2 h-0.5 bg-white/[0.05] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${scores.composite}%`, background: scores.composite >= 75 ? "#10b981" : scores.composite >= 60 ? "#f59e0b" : "#ef4444" }} />
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-white/35 font-mono">{p.asset}</span>
-              <span className="text-[10px] font-black" style={{ color: p.bias === "BULLISH" ? "#10b981" : "#ef4444" }}>{p.bias}</span>
-              <span className="text-[10px] text-white/25 font-mono">{p.tf}</span>
-              <span className="ml-auto text-[10px] font-mono text-white/40">{p.conf}%</span>
-            </div>
-            <div className="mt-2 h-0.5 bg-white/[0.05] rounded-full overflow-hidden">
-              <div className="h-full rounded-full" style={{
-                width: `${p.conf}%`,
-                background: p.conf >= 75 ? "#10b981" : p.conf >= 60 ? "#f59e0b" : "#ef4444",
-              }} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Tabs */}
@@ -190,57 +197,86 @@ const IntelligenceScreen = () => {
 
       {/* Tab content */}
       <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 mb-6 min-h-[200px]">
-        {tab === "Patterns" && pattern && (
+        {tab === "Patterns" && sel && (
           <div className="space-y-4">
-            <div>
-              <div className="text-lg font-black text-white mb-1">{pattern.name}</div>
-              <div className="text-sm text-white/40 font-mono">{pattern.asset} · {pattern.tf} · {pattern.bias}</div>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-lg font-black text-white mb-1">{label(sel.pair)}</div>
+                <div className="text-sm text-white/40 font-mono">
+                  {sel.scores.bias} · {sel.scores.verdict} · {sel.scores.locks.filter(Boolean).length}/4 locks
+                  {sel.scores.winRate != null && <> · WR {sel.scores.winRate}%</>}
+                </div>
+              </div>
+              <div className="text-3xl font-black tabular-nums" style={{ color: STATUS(sel.scores.verdict).color }}>{sel.scores.composite}</div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[["Confidence", pattern.conf + "%", pattern.conf >= 75 ? "#10b981" : "#f59e0b"],
-                ["Timeframe", pattern.tf, "#ffffff"],
-                ["Status", pattern.status, pattern.status === "ACTIVE" ? "#10b981" : "#f59e0b"]].map(([l, v, c]: any) => (
-                <div key={l} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
-                  <div className="text-[10px] text-white/30 uppercase font-mono mb-1">{l}</div>
-                  <div className="text-xl font-black" style={{ color: c }}>{v}</div>
+            <div className="space-y-2">
+              {sel.scores.factors.map((f) => (
+                <div key={f.label}>
+                  <div className="flex justify-between text-[10px] font-mono mb-0.5">
+                    <span className="text-white/40 uppercase">{f.label}</span>
+                    <span className="text-white/30 truncate ml-2">{f.note}</span>
+                  </div>
+                  <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${f.value}%`, background: "#aa44ff80" }} />
+                  </div>
                 </div>
               ))}
             </div>
+            <div className="text-[10px] text-white/25 font-mono border-t border-white/[0.06] pt-2">{ASSET_BRAIN[sel.pair]?.edge}</div>
           </div>
         )}
         {tab === "Predictions" && (
           <div className="space-y-3">
-            {[{ a: "EUR/USD", d: "UP", p: 74, t: "1.0965" }, { a: "XAU/USD", d: "DOWN", p: 68, t: "2,285" }, { a: "BTC/USD", d: "UP", p: 61, t: "71,400" }].map((p) => (
-              <div key={p.a} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="font-black text-white">{p.a}</span>
-                    <span className="text-xs font-black px-2 py-0.5 rounded" style={{ background: p.d === "UP" ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)", color: p.d === "UP" ? "#10b981" : "#ef4444" }}>
-                      {p.d === "UP" ? "▲" : "▼"} {p.d}
-                    </span>
+            {ranked.slice(0, 6).map(({ pair, scores }) => {
+              const up = scores.bias === "BULLISH";
+              const flat = scores.bias === "NEUTRAL";
+              const col = flat ? "rgba(255,255,255,0.4)" : up ? "#10b981" : "#ef4444";
+              return (
+                <div key={pair} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-white">{label(pair)}</span>
+                      <span className="text-xs font-black px-2 py-0.5 rounded" style={{ background: `${col}1f`, color: col }}>
+                        {flat ? "—" : up ? "▲ UP" : "▼ DOWN"}
+                      </span>
+                    </div>
+                    <span className="text-sm font-black text-white/70">{scores.composite}%</span>
                   </div>
-                  <span className="text-sm font-black text-white/70">{p.p}%</span>
+                  <div className="text-[9px] text-white/30 font-mono mb-2">{scores.factors[0]?.note}</div>
+                  <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${scores.composite}%`, background: `${col}99` }} />
+                  </div>
                 </div>
-                <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-emerald-500/60" style={{ width: `${p.p}%` }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {tab === "Sentiment" && (
           <div className="grid grid-cols-2 gap-3">
-            {[["Retail Long", 68], ["Institutional", 42], ["Options Flow", 75], ["Fear & Greed", 58]].map(([l, v]: any) => (
-              <div key={l} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                <div className="text-[10px] text-white/35 uppercase font-mono mb-2">{l}</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${v}%`, background: "#aa44ff80" }} />
+            {(() => {
+              const appetite = sel?.scores.sentiment ?? 50;
+              const bulls = ranked.filter((r) => r.scores.bias === "BULLISH").length;
+              const bears = ranked.filter((r) => r.scores.bias === "BEARISH").length;
+              const n = Math.max(1, ranked.length);
+              const cards: [string, number, string][] = [
+                ["Risk Appetite", appetite, appetite >= 55 ? "risk-on" : appetite <= 45 ? "risk-off" : "neutral"],
+                ["Fear & Greed", fearGreed?.value ?? 50, fearGreed?.classification ?? "feed pending"],
+                ["Assets Bullish", Math.round((bulls / n) * 100), `${bulls}/${ranked.length} pairs`],
+                ["Assets Bearish", Math.round((bears / n) * 100), `${bears}/${ranked.length} pairs`],
+              ];
+              return cards.map(([l, v, note]) => (
+                <div key={l} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                  <div className="text-[10px] text-white/35 uppercase font-mono mb-2">{l}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${v}%`, background: "#aa44ff80" }} />
+                    </div>
+                    <span className="text-xs font-black" style={{ color: "#aa44ff" }}>{v}</span>
                   </div>
-                  <span className="text-xs font-black" style={{ color: "#aa44ff" }}>{v}%</span>
+                  <div className="text-[9px] text-white/25 font-mono">{note}</div>
                 </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         )}
         {tab === "ARCHON" && <ArchonTab prices={prices} />}
