@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { useEXAScores } from "@/hooks/useEXAScores";
+import { useKeyLevels } from "@/hooks/useKeyLevels";
 import { usePrices } from "@/hooks/usePrices";
 import executionTexture from "@/assets/textures/execution-realistic.jpg";
 
@@ -15,7 +16,9 @@ const LOCKS_META = [
 ];
 
 const EXALocksGate = ({ liveLocks }: { liveLocks: boolean[] }) => {
-  const [locks, setLocks] = useState(liveLocks);
+  // Read-only reflection of the live engine locks — NOT user-toggleable.
+  // (Previously clickable, which let you fake a 4/4 DEPLOY by hand.)
+  const locks   = liveLocks;
   const count   = locks.filter(Boolean).length;
   const verdict = count === 4 ? "DEPLOY" : count >= 3 ? "MONITOR" : "DENIED";
   const vc      = verdict === "DEPLOY" ? "#10b981" : verdict === "MONITOR" ? "#f59e0b" : "#ef4444";
@@ -35,8 +38,7 @@ const EXALocksGate = ({ liveLocks }: { liveLocks: boolean[] }) => {
       <div className="space-y-2">
         {LOCKS_META.map((lock, i) => (
           <div key={lock.id}
-            onClick={() => setLocks(p => { const n=[...p]; n[i]=!n[i]; return n; })}
-            className="flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all border"
+            className="flex items-center gap-4 p-3 rounded-xl transition-all border"
             style={{
               background:   locks[i] ? "rgba(255,221,0,0.05)" : "rgba(255,255,255,0.02)",
               borderColor:  locks[i] ? "rgba(255,221,0,0.2)"  : "rgba(255,255,255,0.04)",
@@ -69,9 +71,33 @@ const EXALocksGate = ({ liveLocks }: { liveLocks: boolean[] }) => {
 const SignalPanel = ({ pair }: { pair: string }) => {
   const { prices } = usePrices();
   const exa = useEXAScores(pair);
+  const { levels } = useKeyLevels();
+  const lv  = levels[pair];
   const p   = prices[pair];
   const dec = pair.includes("JPY") ? 3 : pair === "XAUUSD" ? 2 : pair === "NAS100" || pair === "BTCUSD" ? 0 : 4;
   const vc  = exa.verdict === "AUTHORIZED" ? "#10b981" : exa.verdict === "DELAY" ? "#f59e0b" : "#ef4444";
+
+  // Direction-aware levels anchored to REAL swing liquidity: long → stop under the
+  // prior-day low, target the prior-week high (inverse for short). No bias = no levels.
+  const dir = exa.bias === "BULLISH" ? 1 : exa.bias === "BEARISH" ? -1 : 0;
+  const fmt = (n: number) => n.toFixed(dec);
+  let entry = "—", stop = "—", target = "—";
+  let stopSub = "—", tgtSub = "—", entrySub = "no directional bias — stand aside";
+  if (p && dir) {
+    entry = fmt(p.price);
+    entrySub = `${exa.bias} @ live`;
+    if (lv) {
+      stop   = dir > 0 ? fmt(lv.pdl) : fmt(lv.pdh);
+      target = dir > 0 ? fmt(lv.pwh) : fmt(lv.pwl);
+      stopSub = dir > 0 ? "prev-day low" : "prev-day high";
+      tgtSub  = dir > 0 ? "prior-week high" : "prior-week low";
+    } else {
+      const sd = 0.0012 * (0.6 + exa.volatility / 100);
+      stop   = fmt(p.price * (1 - dir * sd));
+      target = fmt(p.price * (1 + dir * sd * 2));
+      stopSub = tgtSub = "vol-scaled (levels loading)";
+    }
+  }
 
   return (
     <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6">
@@ -100,12 +126,12 @@ const SignalPanel = ({ pair }: { pair: string }) => {
         </div>
       </div>
 
-      {/* Reference levels */}
+      {/* Reference levels — direction-aware, anchored to real swing liquidity */}
       <div className="grid grid-cols-3 gap-3 mb-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
         {[
-          ["Entry Zone", p ? (p.price*0.9998).toFixed(dec) : "—", "text-white/80",     "HTF OB area"],
-          ["Stop Level", p ? (p.price*0.9985).toFixed(dec) : "—", "text-red-400/80",   "Below swept low"],
-          ["Target Level",p? (p.price*1.003 ).toFixed(dec) : "—", "text-emerald-400/80","Draw on liquidity"],
+          ["Entry Zone",  entry,  "text-white/80",      entrySub],
+          ["Stop Level",  stop,   "text-red-400/80",    stopSub],
+          ["Target Level",target, "text-emerald-400/80", tgtSub],
         ].map(([l,v,c,sub]) => (
           <div key={l} className="text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">{l}</div>
@@ -116,7 +142,7 @@ const SignalPanel = ({ pair }: { pair: string }) => {
       </div>
 
       <div className="text-[10px] text-white/25 font-mono text-center border border-white/[0.05] rounded-lg py-2 bg-white/[0.01]">
-        Reference levels only — confirm on your chart before executing on MT4/MT5
+        Levels from real prior-day/week swings — confirm on your chart before executing on MT4/MT5
       </div>
     </div>
   );
