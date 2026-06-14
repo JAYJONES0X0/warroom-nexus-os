@@ -73,8 +73,10 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   try {
+    // Pull a deep slice — ~60% of top markets sit at price extremes and get
+    // filtered, so fetch 150 to land on a rich, full board (not 1-5 markets).
     const resp = await fetch(
-      'https://gamma-api.polymarket.com/markets?limit=20&active=true&closed=false&order=volume24hr&ascending=false',
+      'https://gamma-api.polymarket.com/markets?limit=150&active=true&closed=false&order=volume24hr&ascending=false',
       { headers: { 'User-Agent': 'Mozilla/5.0' } }
     );
     if (!resp.ok) throw new Error(`Gamma API ${resp.status}`);
@@ -108,7 +110,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       })
       // Filter out effectively-resolved markets and expired ones
       .filter(m => m.yesPrice > 0.03 && m.yesPrice < 0.97 && m.daysLeft !== 0)
-      .slice(0, 20);
+      .slice(0, 60);
 
     res.json({ markets, fetchedAt: Date.now() });
   } catch (e) {
