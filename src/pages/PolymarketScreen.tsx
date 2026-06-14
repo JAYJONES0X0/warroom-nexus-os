@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePolymarkets, PolyMarket } from "@/hooks/usePolymarkets";
+import { getRecord, logMarkets, applyResolutions, computeStats, type TrackEntry } from "@/lib/trackRecord";
 import { useWorldMonitorMarkets } from "@/hooks/useWorldMonitorMarkets";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroContextPanel } from "@/components/MacroContextPanel";
@@ -324,6 +325,22 @@ const PolymarketScreen = () => {
   const [selected, setSelected]  = useState<PolyMarket | null>(null);
   const [sortBy,   setSortBy]    = useState<"score" | "volume" | "liquidity">("score");
   const [filter,   setFilter]    = useState<"all" | "contested" | "consensus" | "arb">("all");
+  const [record,   setRecord]    = useState<TrackEntry[]>(getRecord);
+
+  // Track record: log every classified market, then stamp the real outcome once it settles.
+  useEffect(() => {
+    if (markets.length) {
+      setRecord(logMarkets(markets.map((m) => ({ id: m.id, question: m.question, edge: m.edge, yesPrice: m.yesPrice, daysLeft: m.daysLeft }))));
+    }
+    const pending = getRecord().filter((e) => e.resolved == null && !e.id.startsWith("seed-")).map((e) => e.id).slice(0, 30);
+    if (pending.length) {
+      fetch(`/api/resolve?ids=${pending.join(",")}`).then((r) => r.json()).then((d) => {
+        if (d.results?.length) setRecord(applyResolutions(d.results));
+      }).catch(() => { /* ignore */ });
+    }
+  }, [markets]);
+
+  const trackStats = computeStats(record);
 
   const sorted = useMemo(() => {
     let m = [...markets];
@@ -452,10 +469,49 @@ Be sharp and honest. State the implied probability. Only claim an edge if you ca
             <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">Macro Context</div>
             <div className="text-[8px] text-white/20 font-mono">Live market indicators</div>
           </div>
-          <div className="px-3 py-3 border-b border-white/[0.06] shrink-0 overflow-y-auto" style={{ maxHeight: '320px' }}>
+          <div className="px-3 py-3 border-b border-white/[0.06] shrink-0 overflow-y-auto" style={{ maxHeight: '260px' }}>
             <MacroContextPanel />
           </div>
-          
+
+          {/* Track Record — our reads vs the real outcomes */}
+          <div className="px-3 py-2.5 border-b border-white/[0.06] shrink-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <div>
+                <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">Track Record</div>
+                <div className="text-[8px] text-white/20 font-mono">read vs outcome</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-black text-white tabular-nums">{trackStats.resolved}/{trackStats.tracked}</div>
+                <div className="text-[8px] text-white/25 font-mono">resolved / tracked</div>
+              </div>
+            </div>
+            {trackStats.favHitRate != null && (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[8px] text-white/30 font-mono uppercase">Favorite held</span>
+                <div className="flex-1 h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${trackStats.favHitRate}%`, background: "#10b981" }} />
+                </div>
+                <span className="text-[9px] font-black text-emerald-400">{trackStats.favHitRate}%</span>
+              </div>
+            )}
+            <div className="space-y-1 max-h-[96px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+              {record.filter((e) => e.resolved).slice(-5).reverse().map((e) => {
+                const favYes = e.impliedYes >= 0.5;
+                const hit = (favYes && e.resolved === "YES") || (!favYes && e.resolved === "NO");
+                return (
+                  <div key={e.id} className="flex items-center gap-1.5 text-[8px] font-mono" title={e.note ?? `${e.classification} · implied YES ${Math.round(e.impliedYes * 100)}% → ${e.resolved}`}>
+                    <span style={{ color: hit ? "#10b981" : "#ef4444" }}>{hit ? "✓" : "✗"}</span>
+                    <span className="text-white/40 truncate flex-1">{e.question}</span>
+                    <span className="text-white/25 shrink-0">{Math.round(e.impliedYes * 100)}%→{e.resolved}</span>
+                  </div>
+                );
+              })}
+              {record.filter((e) => e.resolved).length === 0 && (
+                <div className="text-[8px] text-white/20 font-mono">logging predictions — outcomes appear as markets settle</div>
+              )}
+            </div>
+          </div>
+
           {/* Agent Panel */}
           <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
             <div className="text-[9px] text-violet-400/60 uppercase tracking-wider font-mono">NEXUS-P AGENT</div>
