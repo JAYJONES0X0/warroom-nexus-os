@@ -69,9 +69,36 @@ function classify(yesPrice: number, liquidity: number, arb: boolean): string {
   return 'LONGSHOT';                                       // 0.20–0.40 / 0.60–0.80 lean
 }
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+// Resolution status for specific markets (by id) — used by the Track Record
+// scoreboard to stamp outcomes once a market settles. Folded in here (was its own
+// /api/resolve route) to stay under the Hobby 12-function cap. Call /api/polymarket?ids=a,b,c.
+async function resolveIds(idsRaw: string, res: VercelResponse) {
+  const ids = idsRaw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 30);
+  if (!ids.length) return res.status(200).json({ results: [] });
+  const results = await Promise.all(ids.map(async (id) => {
+    try {
+      const r = await fetch(`https://gamma-api.polymarket.com/markets/${encodeURIComponent(id)}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (!r.ok) return { id, closed: false, winner: null as 'YES' | 'NO' | null };
+      const m = await r.json();
+      const closed = !!m.closed;
+      let winner: 'YES' | 'NO' | null = null;
+      if (closed) {
+        const prices = JSON.parse(m.outcomePrices || '["0","0"]').map(Number);
+        winner = (prices[0] ?? 0) >= 0.99 ? 'YES' : (prices[1] ?? 0) >= 0.99 ? 'NO' : null;
+      }
+      return { id, closed, winner };
+    } catch { return { id, closed: false, winner: null as 'YES' | 'NO' | null }; }
+  }));
+  return res.status(200).json({ results });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 's-maxage=60');
   res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // Resolution sub-route: /api/polymarket?ids=a,b,c
+  const ids = req.query.ids;
+  if (ids != null) return resolveIds(String(ids), res);
 
   try {
     // Pull a deep slice — ~60% of top markets sit at price extremes and get

@@ -159,7 +159,7 @@ const PolymarketScreen = () => {
       ...getPlays().filter((p) => p.resolved == null).map((p) => p.marketId),
     ])).slice(0, 30);
     if (pending.length) {
-      fetch(`/api/resolve?ids=${pending.join(",")}`).then((r) => r.json()).then((d) => {
+      fetch(`/api/polymarket?ids=${pending.join(",")}`).then((r) => r.json()).then((d) => {
         if (d.results?.length) { setRecord(applyResolutions(d.results)); setPlays(resolvePlays(d.results)); }
       }).catch(() => { /* ignore */ });
     }
