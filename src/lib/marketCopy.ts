@@ -24,12 +24,14 @@ export function marketCopy(m: PolyMarket): MarketCopy {
   const when = whenStr(m.daysLeft);
   const flow: MarketCopy["flow"] = pts >= 2 ? "IN" : pts <= -2 ? "OUT" : "FLAT";
 
-  // Real arbitrage trumps everything.
+  // Possible cross-outcome mispricing — but a single market can't prove a basket.
+  // The real verification lives in the Edge Engine (CLOB-walked, fee-net). No
+  // "free money" language here: this is a candidate, not a confirmed edge.
   if (m.edge === "ARB") {
     return {
-      call: "Free-money spread — buy both sides under $1",
-      why: `A true arbitrage: lock a guaranteed return regardless of outcome. ${liq} liquidity, settles ${when}.`,
-      discipline: "The only sure edge on the board. Size to what the book can fill.",
+      call: "Possible mispricing — confirm in the Edge Engine",
+      why: `Outcome prices look dislocated, but a single market can't prove an executable basket. ${liq} liquidity, settles ${when}. The Edge Engine walks the orderbook to confirm.`,
+      discipline: "A candidate, not a confirmed edge. Only the CLOB-verified basket counts.",
       flow: "FLAT",
     };
   }
