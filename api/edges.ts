@@ -108,10 +108,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map((c) => ({ c, edge: evaluateEvent(c, null, stake) }))
       .filter((x) => x.edge.arbType != null);
 
-    // Verify the closest-to-arb, non-augmented, tractable-leg candidates.
+    // Verify the BIGGEST theoretical edges first. theoreticalReturn is the ceiling —
+    // execution only subtracts — so a candidate below the LIVE bar can NEVER become
+    // LIVE. Spending the CLOB budget on the largest gaps is the only way to find a
+    // real edge (or to prove, honestly, that even the biggest gap doesn't survive).
     const toVerify = theoretical
       .filter((x) => x.edge.status !== 'AUGMENTED_WATCH' && x.c.markets.length <= MAX_VERIFY_LEGS)
-      .sort((a, b) => a.edge.distFromArbBps - b.edge.distFromArbBps)
+      .sort((a, b) => (b.edge.theoreticalReturnPct ?? -1) - (a.edge.theoreticalReturnPct ?? -1))
       .slice(0, verifyK);
 
     // Stage 2 — CLOB verification (parallel, capped). Failure → stays theoretical.
