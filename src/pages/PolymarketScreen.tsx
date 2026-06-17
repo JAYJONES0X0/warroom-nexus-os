@@ -4,7 +4,7 @@ import { usePolymarkets, PolyMarket } from "@/hooks/usePolymarkets";
 import { useEdges } from "@/hooks/useEdges";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroContextPanel } from "@/components/MacroContextPanel";
-import { marketCopy } from "@/lib/marketCopy";
+import { marketCopy, type MarketCategory } from "@/lib/marketCopy";
 import { observeEdges } from "@/lib/edgeJournal";
 import { getWatch, toggleWatch } from "@/lib/watchlist";
 import type { ArbEdge } from "@/lib/arb";
@@ -19,6 +19,11 @@ const TAG_COLOR: Record<string, string> = {
   ARB: "#22d3ee", CONTESTED: "#f59e0b", CONSENSUS: "#94a3b8", LONGSHOT: "#a855f7", THIN: "#6b7280", OPEN: "#64748b",
 };
 const tagColor = (t: string) => TAG_COLOR[t] ?? TAG_COLOR.OPEN;
+
+const CATEGORY_COLOR: Record<MarketCategory, string> = {
+  GEOPOLITICAL: "#f43f5e", SPORTS: "#38bdf8", MACRO: "#f59e0b", CRYPTO: "#a78bfa", EVENTS: "#6b7280",
+};
+const URGENCY_COLOR: Record<string, string> = { HOT: "#ef4444", ACTIVE: "#f59e0b", COLD: "#6b7280" };
 const money = (n: number) => `£${n.toFixed(2)}`;
 const cents = (p: number) => `${Math.round(p * 100)}¢`;
 const kfmt = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${Math.round(n / 1000)}K`);
@@ -48,15 +53,22 @@ const MoverCard = ({ m, watched, onWatch, onTake, hero }: {
 
   return (
     <div className="rounded-2xl p-5 border" style={{ borderColor: `${col}3a`, background: hero ? `${col}0e` : "rgba(255,255,255,0.02)" }}>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded tracking-wide" style={{ color: col, background: `${col}1a`, border: `1px solid ${col}40` }}>{flowLabel(c.flow)}</span>
         {pts !== 0 && <span className="text-[13px] font-black tabular-nums" style={{ color: col }}>{pts > 0 ? "+" : ""}{pts}¢ <span className="text-white/30 font-normal">24h</span></span>}
+        <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide" style={{ color: CATEGORY_COLOR[c.category], background: `${CATEGORY_COLOR[c.category]}15` }}>{c.category}</span>
+        {c.urgency !== "COLD" && (
+          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide" style={{ color: URGENCY_COLOR[c.urgency], background: `${URGENCY_COLOR[c.urgency]}15` }}>
+            {c.urgency === "HOT" ? "⚡ URGENT" : "SETTLING SOON"}
+          </span>
+        )}
         <button onClick={() => onWatch(m.id)} title="Track this market" className="ml-auto text-base leading-none transition-transform hover:scale-110" style={{ color: watched ? "#fbbf24" : "rgba(255,255,255,0.25)" }}>{watched ? "★" : "☆"}</button>
       </div>
 
       <div className={`${hero ? "text-lg" : "text-[15px]"} font-black text-white leading-snug mb-1`}>{c.call}</div>
       <div className="text-[11px] text-white/45 font-mono leading-relaxed mb-1">{m.question}</div>
-      <div className="text-[11px] text-white/55 font-mono leading-relaxed mb-3">{c.why}</div>
+      <div className="text-[11px] text-white/55 font-mono leading-relaxed mb-2">{c.why}</div>
+      <div className="text-[10px] text-white/35 font-mono leading-relaxed mb-3 border-l-2 border-white/[0.08] pl-2 italic">{c.discipline}</div>
 
       <div className="flex items-center gap-3 text-[10px] text-white/40 font-mono border-t border-white/[0.06] pt-2.5 mb-3">
         <span>now <span className="text-white/70 font-black">{cents(m.yesPrice)}</span></span>
@@ -144,10 +156,16 @@ const PolymarketScreen = () => {
   const pnlColor = stats.realizedPnl > 0 ? "#10b981" : stats.realizedPnl < 0 ? "#ef4444" : "rgba(255,255,255,0.6)";
   const liveArb = eng.scanned?.live ?? 0;
 
-  const agentSystem = `You are NEXUS-P, the EXA prediction-market analyst. You read the live money flow on Polymarket and give a sharp, honest take — what moved, where the money went, and whether the repricing looks justified or overdone. You NEVER claim a guaranteed edge: the price is the consensus; you flag where it MIGHT be wrong with a specific reason, else you say "priced fairly". Your calls are logged and scored against real resolution — be accountable.
-Right now: ${activeMovers} markets moved >5c in 24h. Top mover: ${movers[0] ? `"${movers[0].question}" (${Math.round((movers[0].move24h ?? 0) * 100)}c)` : "none"}. Mechanical arb live: ${liveArb}.`;
-  const autoPrompt = movers[0]
-    ? `Today's biggest move is "${movers[0].question}" — ${Math.round((movers[0].move24h ?? 0) * 100)}¢ in 24h, now ${Math.round(movers[0].yesPrice * 100)}¢. In plain English: what likely drove this, and is the move justified, overdone, or a fair repricing? Give me the one risk that would change your read.`
+  const topMovers = movers.slice(0, 3);
+  const moverSummary = topMovers.map((m, i) =>
+    `${i + 1}. "${m.question}" — ${Math.round((m.move24h ?? 0) * 100) > 0 ? "+" : ""}${Math.round((m.move24h ?? 0) * 100)}¢, now ${Math.round(m.yesPrice * 100)}¢, settles ${m.daysLeft != null ? `in ${m.daysLeft}d` : "soon"}`
+  ).join("\n");
+
+  const agentSystem = `You are NEXUS-P, the EXA prediction-market analyst. You read live money flow on Polymarket and give sharp, honest takes — what moved, where the money went, and whether the repricing looks justified or overdone. You NEVER claim a guaranteed edge: the price is the consensus; you flag where it MIGHT be wrong with a specific reason, else you say "priced fairly". Every call is logged and scored against real resolution — be accountable.
+Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${liveArb}.`;
+
+  const autoPrompt = topMovers.length > 0
+    ? `Today's top ${topMovers.length} movers:\n${moverSummary}\n\nFor each: what likely drove the move, is it justified/overdone/fair, and what's the one risk that would change your read? Be specific — no generic takes.`
     : "The board is quiet today. What kind of event or news usually creates the sharp repricings worth acting on here?";
 
   return (
