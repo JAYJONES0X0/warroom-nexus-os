@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { useEXAScores } from "@/hooks/useEXAScores";
@@ -10,7 +10,9 @@ import {
   estimatePositionSize,
   evaluateCommand,
   formatPrice,
+  formatCountdown,
   getAssetMeta,
+  getNextKillzone,
   type WarroomTimeframe,
 } from "@/lib/warroomCommand";
 
@@ -135,6 +137,14 @@ const CommandScreen = () => {
   }, [state.setup.entry, state.setup.stop, state.setup.tp1]);
 
   const locksActive = exa.locks.filter(Boolean).length;
+
+  // Session countdown — updates every 60s
+  const [nextKZ, setNextKZ] = useState(() => getNextKillzone());
+  useEffect(() => {
+    setNextKZ(getNextKillzone());
+    const id = setInterval(() => setNextKZ(getNextKillzone()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const aiRead = [
     "WARROOM READ",
@@ -480,7 +490,15 @@ const CommandScreen = () => {
                 { label: "SMC structure verified", done: !!state.structureContext },
                 { label: "Correlation verified", done: !!state.correlationState },
                 { label: "Confluence ≥ 85%", done: decision.confluence.score >= 85 },
-                { label: "In killzone / NY overlap", done: state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM") },
+                {
+                  label: (() => {
+                    const inKZ = state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM");
+                    if (inKZ) return "In killzone / NY overlap";
+                    if (nextKZ) return `In killzone · ${nextKZ.label} in ${formatCountdown(nextKZ.minutesAway)}`;
+                    return "In killzone / NY overlap";
+                  })(),
+                  done: state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM"),
+                },
                 { label: "Entry / stop / TP entered", done: !!(state.setup.entry && state.setup.stop && state.setup.tp1) },
               ].map(({ label, done }) => (
                 <div key={label} className="flex items-center gap-2">

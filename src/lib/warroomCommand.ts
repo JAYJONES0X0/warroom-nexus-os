@@ -200,6 +200,46 @@ export function evaluateCommand(state: WarroomState): CommandDecision {
   };
 }
 
+// ── Session countdown ────────────────────────────────────────────────────────
+
+export interface NextKillzone {
+  label: string;
+  minutesAway: number;
+}
+
+/** Returns the next upcoming killzone, or null if one is active right now. */
+export function getNextKillzone(now = new Date()): NextKillzone | null {
+  const day = now.getUTCDay();
+  const h = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const weekend = day === 0 || day === 6 || (day === 5 && h >= 21);
+
+  // Active killzone now — nothing to countdown to
+  if (!weekend && ((h >= 7 && h < 10) || (h >= 12.5 && h < 16))) return null;
+
+  const mins = (hrs: number) => Math.round(hrs * 60);
+
+  if (weekend) {
+    // Days remaining to Monday 00:00 UTC
+    const daysToMon = day === 0 ? 1 : day === 6 ? 2 : 3; // Sun=1, Sat=2, Fri-late=3
+    const hoursToMon7 = (24 - h) + (daysToMon - 1) * 24 + 7;
+    return { label: "London Killzone (Mon)", minutesAway: mins(hoursToMon7) };
+  }
+
+  if (h < 7) return { label: "London Killzone", minutesAway: mins(7 - h) };
+  if (h >= 10 && h < 12.5) return { label: "NY/London Overlap", minutesAway: mins(12.5 - h) };
+  // h >= 16 or edge: next is London Killzone the following morning
+  return { label: "London Killzone", minutesAway: mins((24 - h) + 7) };
+}
+
+export function formatCountdown(minutesAway: number): string {
+  if (minutesAway <= 0) return "NOW";
+  const h = Math.floor(minutesAway / 60);
+  const m = minutesAway % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export const DEFAULT_WARROOM_STATE: WarroomState = {
   selectedAsset: "XAUUSD",
   selectedTimeframe: "15m",
