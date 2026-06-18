@@ -13,29 +13,22 @@ import neptuneTex from "@/assets/textures/neptune.jpg";
 import uranusTex  from "@/assets/textures/uranus.jpg";
 import moonTex    from "@/assets/textures/moon.jpg";
 
-// ─── Asset state passed from the OS ──────────────────────────────────────────
+// ─── Module state passed from the OS lobby ────────────────────────────────────
 export interface PlanetStateInfo {
-  verdict: "AUTHORIZED" | "DELAY" | "DENIED" | "";
-  composite: number;
-  price: string;
-  bias: "BULLISH" | "BEARISH" | "NEUTRAL" | "";
-  priceChange: number | null;
+  status: "LIVE" | "FROZEN" | "BUILDING";
+  description: string;
 }
 
-const VERDICT_COLOR: Record<string, string> = {
-  AUTHORIZED: "#10b981",
-  DELAY:      "#f59e0b",
-  DENIED:     "#ef4444",
-};
-
-function verdictColor(verdict: string, fallback: string) {
-  return VERDICT_COLOR[verdict] ?? fallback;
+function moduleStatusColor(status: PlanetStateInfo["status"] | undefined, baseGlow: string): string {
+  if (status === "FROZEN") return "#4b5563";
+  if (status === "BUILDING") return "#f59e0b";
+  return baseGlow;
 }
 
 const formatPair = (key: string): string => {
   if (!key) return "";
   if (key.length === 6 && !key.includes("1")) return `${key.slice(0, 3)}/${key.slice(3)}`;
-  return key;
+  return key.toUpperCase();
 };
 
 // ─── Shaders ─────────────────────────────────────────────────────────────────
@@ -178,7 +171,7 @@ const Planet = ({ assetKey, texture, distance, angle, size, baseGlow, rings, orb
   const [hovered, setHovered] = useState(false);
   const tex = useTexture(texture);
 
-  const activeColor = state?.verdict ? verdictColor(state.verdict, baseGlow) : baseGlow;
+  const activeColor = moduleStatusColor(state?.status, baseGlow);
   const displayName = formatPair(assetKey);
   const hasState    = !!assetKey && !!state;
   const isInteractive = !!assetKey;
@@ -204,13 +197,13 @@ const Planet = ({ assetKey, texture, distance, angle, size, baseGlow, rings, orb
         <meshStandardMaterial
           map={tex} metalness={0.05} roughness={0.82}
           emissive={new THREE.Color(activeColor)}
-          emissiveIntensity={hovered ? 0.45 : (hasState ? 0.14 : 0.04)}
+          emissiveIntensity={hovered ? 0.45 : state?.status === "FROZEN" ? 0.03 : hasState ? 0.14 : 0.04}
         />
       </mesh>
       <Atmo radius={size} color={activeColor} />
       {rings && <SaturnRings r={size} />}
 
-      {/* Asset HUD — always visible for asset planets */}
+      {/* Module HUD — always visible for module planets */}
       {isInteractive && (
         <Html center position={[0, -(size + 2.0), 0]} zIndexRange={[100, 100]}>
           <div style={{
@@ -218,59 +211,39 @@ const Planet = ({ assetKey, texture, distance, angle, size, baseGlow, rings, orb
             pointerEvents: "none",
             userSelect: "none",
             textAlign: "center",
-            minWidth: "88px",
-            padding: "5px 9px 6px",
+            minWidth: "92px",
+            padding: "5px 10px 6px",
             borderRadius: "8px",
-            background: "rgba(0,1,6,0.82)",
+            background: "rgba(0,1,6,0.85)",
             backdropFilter: "blur(10px)",
             border: `1px solid ${activeColor}${hovered ? "55" : "28"}`,
             boxShadow: hovered ? `0 0 18px ${activeColor}22` : "none",
-            opacity: hovered ? 1 : 0.82,
+            opacity: hovered ? 1 : state?.status === "FROZEN" ? 0.55 : 0.85,
             transform: hovered ? "translateY(-1px)" : "none",
             transition: "all 0.18s ease",
           }}>
-            {/* Asset key */}
             <div style={{
               color: "#ffffff", fontSize: "11px", fontWeight: "900",
               letterSpacing: "0.18em", textTransform: "uppercase",
               textShadow: `0 0 8px ${activeColor}88`,
             }}>{displayName}</div>
-
-            {/* State badge */}
-            {hasState && state && (
+            {hasState && state ? (
               <>
-                <div style={{
-                  color: activeColor, fontSize: "8.5px", fontWeight: "800",
-                  letterSpacing: "0.12em", marginTop: "2px",
-                }}>
-                  {state.verdict || "—"} · {state.composite}%
+                <div style={{ color: activeColor, fontSize: "8px", fontWeight: "800", letterSpacing: "0.12em", marginTop: "2px" }}>
+                  {state.status === "LIVE" ? "● LIVE" : state.status === "FROZEN" ? "◌ FROZEN" : "◑ BUILDING"}
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "10px", fontWeight: "700", marginTop: "1px" }}>
-                  {state.price}
+                <div style={{ color: "rgba(255,255,255,0.38)", fontSize: "7.5px", marginTop: "2px", maxWidth: "100px" }}>
+                  {state.description}
                 </div>
-                {state.priceChange != null && (
-                  <div style={{
-                    fontSize: "8.5px", fontWeight: "700",
-                    color: state.priceChange >= 0 ? "#10b981" : "#ef4444",
-                  }}>
-                    {state.priceChange >= 0 ? "+" : ""}{state.priceChange.toFixed(2)}%
-                  </div>
-                )}
-                <div style={{
-                  fontSize: "7.5px", letterSpacing: "0.1em",
-                  color: state.bias === "BULLISH" ? "#10b981" : state.bias === "BEARISH" ? "#ef4444" : "rgba(255,255,255,0.3)",
-                  marginTop: "1px",
-                }}>{state.bias || "NEUTRAL"}</div>
               </>
-            )}
-            {!hasState && (
-              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: "8px", marginTop: "2px" }}>loading…</div>
+            ) : (
+              <div style={{ color: "rgba(255,255,255,0.22)", fontSize: "7.5px", marginTop: "2px" }}>module</div>
             )}
           </div>
         </Html>
       )}
 
-      <pointLight color={activeColor} intensity={hovered ? 3.2 : (hasState ? 1.4 : 0.8)} distance={20} />
+      <pointLight color={activeColor} intensity={hovered ? 3.2 : state?.status === "FROZEN" ? 0.4 : hasState ? 1.4 : 0.8} distance={20} />
     </group>
   );
 };
@@ -309,30 +282,30 @@ const OrbitRing = ({ radius, opacity=0.12 }: { radius:number; opacity?:number })
   return <line geometry={pts}><lineBasicMaterial color="#8899cc" transparent opacity={opacity} /></line>;
 };
 
-// ─── Planet definitions (asset-mapped) ───────────────────────────────────────
-// Each `assetKey` is a WARROOM_ASSETS key — "" means decorative (no data/click).
+// ─── Planet definitions (module-mapped) ──────────────────────────────────────
+// Each `assetKey` is an OS module key — "" means decorative (no click).
+// COSMOS = module navigation layer. COMMAND = asset execution layer.
 const PLANET_DEFS = [
-  // Inner orbit — the 4 primary instruments
-  { assetKey: "XAUUSD",  texture: jupiterTex, distance: 18, angle: 0,   size: 3.2, baseGlow: "#f59e0b", orbitSpeed: 0.00045 },
-  { assetKey: "EURUSD",  texture: neptuneTex, distance: 18, angle: 90,  size: 3.0, baseGlow: "#4466ff", orbitSpeed: 0.00038 },
-  { assetKey: "GBPUSD",  texture: marsTex,    distance: 18, angle: 180, size: 2.8, baseGlow: "#ff6644", orbitSpeed: 0.00052 },
-  { assetKey: "NAS100",  texture: saturnTex,  distance: 18, angle: 270, size: 3.1, baseGlow: "#0099ff", rings: true, orbitSpeed: 0.00035 },
-  // Outer orbit — secondary instruments
-  { assetKey: "USDJPY",  texture: venusTex,   distance: 30, angle: 0,   size: 2.5, baseGlow: "#ff8800", orbitSpeed: 0.00028 },
-  { assetKey: "SPX",     texture: earthTex,   distance: 30, angle: 72,  size: 2.6, baseGlow: "#44aaff", orbitSpeed: 0.00022 },
-  { assetKey: "DXY",     texture: mercuryTex, distance: 30, angle: 144, size: 2.3, baseGlow: "#44ffaa", orbitSpeed: 0.00031 },
-  { assetKey: "BTCUSD",  texture: uranusTex,  distance: 30, angle: 216, size: 2.7, baseGlow: "#f7931a", orbitSpeed: 0.00019 },
+  // Inner orbit — active OS modules
+  { assetKey: "command",    texture: jupiterTex, distance: 18, angle: 0,   size: 3.2, baseGlow: "#ef4444", orbitSpeed: 0.00045 },
+  { assetKey: "markets",    texture: saturnTex,  distance: 18, angle: 90,  size: 3.0, baseGlow: "#3b82f6", rings: true, orbitSpeed: 0.00038 },
+  { assetKey: "intel",      texture: neptuneTex, distance: 18, angle: 180, size: 2.8, baseGlow: "#f59e0b", orbitSpeed: 0.00052 },
+  { assetKey: "polymarket", texture: uranusTex,  distance: 18, angle: 270, size: 3.1, baseGlow: "#a855f7", orbitSpeed: 0.00035 },
+  // Outer orbit — utility modules
+  { assetKey: "journal",    texture: earthTex,   distance: 30, angle: 0,   size: 2.5, baseGlow: "#10b981", orbitSpeed: 0.00028 },
+  { assetKey: "risk",       texture: marsTex,    distance: 30, angle: 72,  size: 2.6, baseGlow: "#ff6644", orbitSpeed: 0.00022 },
+  { assetKey: "settings",   texture: mercuryTex, distance: 30, angle: 144, size: 2.3, baseGlow: "#6b7280", orbitSpeed: 0.00031 },
   // Decorative
-  { assetKey: "",         texture: moonTex,    distance: 30, angle: 288, size: 2.0, baseGlow: "#778899", orbitSpeed: 0.00025 },
+  { assetKey: "",           texture: moonTex,    distance: 30, angle: 216, size: 2.0, baseGlow: "#778899", orbitSpeed: 0.00025 },
 ] as const;
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 interface ThreeSceneProps {
-  onPlanetClick: (assetKey: string) => void;
-  planetStates?: Record<string, PlanetStateInfo>;
+  onPlanetClick: (moduleKey: string) => void;
+  moduleStates?: Record<string, PlanetStateInfo>;
 }
 
-export const ThreeScene = ({ onPlanetClick, planetStates = {} }: ThreeSceneProps) => (
+export const ThreeScene = ({ onPlanetClick, moduleStates = {} }: ThreeSceneProps) => (
   <div className="fixed inset-0 z-[1]">
     <Canvas camera={{ position:[0,22,68], fov:65 }}>
       <ambientLight intensity={0.5} />
@@ -356,7 +329,7 @@ export const ThreeScene = ({ onPlanetClick, planetStates = {} }: ThreeSceneProps
           baseGlow={p.baseGlow}
           rings={"rings" in p ? p.rings : undefined}
           orbitSpeed={p.orbitSpeed}
-          state={p.assetKey ? planetStates[p.assetKey] : undefined}
+          state={p.assetKey ? moduleStates[p.assetKey] : undefined}
           onClick={onPlanetClick}
         />
       ))}

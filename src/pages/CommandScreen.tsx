@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
-import { useEXAScores } from "@/hooks/useEXAScores";
+import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
 import { useWarroom } from "@/context/WarroomStateContext";
 import {
   WARROOM_ASSETS,
@@ -19,6 +19,9 @@ import {
 // Maps to exa.locks[0..3] from the 4-LOCKS framework
 const LOCK_LABELS = ["Structure", "Liquidity", "Timing", "Confirmation"] as const;
 
+// Stable array for useEXAScan — must be module-level to avoid re-running every render
+const ALL_ASSETS = WARROOM_ASSETS.map((a) => a.key);
+
 const statusStyle: Record<string, { label: string; fg: string; bg: string; border: string }> = {
   AUTHORIZE:    { label: "AUTHORIZE",    fg: "#10b981", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.45)" },
   DELAY:        { label: "DELAY",        fg: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.45)" },
@@ -26,6 +29,51 @@ const statusStyle: Record<string, { label: string; fg: string; bg: string; borde
   MONITOR:      { label: "MONITOR",      fg: "#38bdf8", bg: "rgba(56,189,248,0.12)",  border: "rgba(56,189,248,0.45)" },
   INVALIDATED:  { label: "INVALIDATED",  fg: "#f43f5e", bg: "rgba(244,63,94,0.12)",   border: "rgba(244,63,94,0.45)" },
   MISSING_DATA: { label: "MISSING DATA", fg: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.45)" },
+};
+
+// ─── Provenance system — every panel tells what kind of truth it shows ────────
+type ProvenanceState =
+  | "LIVE" | "FRESH" | "STALE" | "DELAYED"
+  | "SIMULATED" | "USER_INPUT" | "MODEL_INFERENCE"
+  | "UNVERIFIED" | "MISSING";
+
+const PROVENANCE_STYLE: Record<ProvenanceState, { label: string; color: string; bg: string }> = {
+  LIVE:             { label: "LIVE",       color: "#10b981", bg: "rgba(16,185,129,0.10)" },
+  FRESH:            { label: "FRESH",      color: "#34d399", bg: "rgba(52,211,153,0.08)" },
+  STALE:            { label: "STALE",      color: "#f59e0b", bg: "rgba(245,158,11,0.10)" },
+  DELAYED:          { label: "DELAYED",    color: "#f97316", bg: "rgba(249,115,22,0.08)" },
+  SIMULATED:        { label: "SIMULATED",  color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+  USER_INPUT:       { label: "USER INPUT", color: "#38bdf8", bg: "rgba(56,189,248,0.08)" },
+  MODEL_INFERENCE:  { label: "MODEL",      color: "#8b5cf6", bg: "rgba(139,92,246,0.08)" },
+  UNVERIFIED:       { label: "UNVERIFIED", color: "#6b7280", bg: "rgba(107,114,128,0.06)" },
+  MISSING:          { label: "MISSING",    color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
+};
+
+function ProvenanceBadge({ state }: { state: ProvenanceState }) {
+  const s = PROVENANCE_STYLE[state];
+  return (
+    <span style={{
+      fontSize: "7px", fontWeight: "800", letterSpacing: "0.13em",
+      padding: "1px 5px", borderRadius: "4px",
+      color: s.color, background: s.bg, border: `1px solid ${s.color}28`,
+      fontFamily: "monospace",
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+const VERDICT_DOT: Record<string, string> = {
+  AUTHORIZED: "#10b981",
+  DELAY:      "#f59e0b",
+  DENIED:     "#ef4444",
+};
+
+const shortAssetKey = (key: string) => {
+  if (key === "USDJPY") return "JPY";
+  if (key === "NAS100") return "NAS";
+  if (key.length <= 4) return key;
+  return key.slice(0, 3);
 };
 
 function Field({ label, value, accent }: { label: string; value: string; accent?: string }) {
@@ -74,6 +122,7 @@ const CommandScreen = () => {
 
   const { prices, fetchedAt, loading, error, source } = usePrices();
   const exa = useEXAScores(state.selectedAsset);
+  const scan = useEXAScan(ALL_ASSETS);
 
   // Wire live price feed → global quote state
   useEffect(() => {
@@ -138,6 +187,12 @@ const CommandScreen = () => {
 
   const locksActive = exa.locks.filter(Boolean).length;
 
+  // Provenance for live quote — honest data state
+  const quoteProv: ProvenanceState = !state.liveQuote ? "MISSING"
+    : source === "error" ? "UNVERIFIED"
+    : state.liveQuote.stale ? "STALE"
+    : "LIVE";
+
   // Session countdown — updates every 60s
   const [nextKZ, setNextKZ] = useState(() => getNextKillzone());
   useEffect(() => {
@@ -177,7 +232,7 @@ const CommandScreen = () => {
             <div className="text-[9px] uppercase tracking-[0.18em] text-white/25">Command · execution intelligence terminal</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => navigate("/legacy-home")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Cosmos</button>
+            <button onClick={() => navigate("/cosmos")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Cosmos</button>
             <button onClick={() => navigate("/polymarket")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Polymarket Module</button>
             <button onClick={() => navigate("/settings")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Settings</button>
           </div>
@@ -197,6 +252,31 @@ const CommandScreen = () => {
             >
               {WARROOM_ASSETS.map((a) => <option key={a.key} value={a.key}>{a.label} · {a.category}</option>)}
             </select>
+
+            {/* Asset constellation — visual EXA state across all 8 pairs */}
+            <div className="mt-3 grid grid-cols-4 gap-1.5">
+              {WARROOM_ASSETS.map((a) => {
+                const row = scan.find((r) => r.pair === a.key);
+                const dotColor = row ? (VERDICT_DOT[row.scores.verdict] ?? "#374151") : "#2d3748";
+                const isSelected = a.key === state.selectedAsset;
+                return (
+                  <button
+                    key={a.key}
+                    onClick={() => setAsset(a.key)}
+                    className="flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-150"
+                    style={{
+                      background: isSelected ? `${dotColor}18` : "transparent",
+                      border: `1px solid ${isSelected ? `${dotColor}45` : "rgba(255,255,255,0.06)"}`,
+                    }}
+                  >
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
+                    <span className="text-[7.5px] font-black tabular-nums" style={{ color: isSelected ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)" }}>
+                      {shortAssetKey(a.key)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="mt-3 text-[10px] uppercase tracking-[0.2em] text-white/30">Timeframe</div>
             <select
@@ -244,7 +324,10 @@ const CommandScreen = () => {
 
           {/* Manual Readiness Gates — toggle with visual state */}
           <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Manual Readiness Gates</div>
+            <div className="flex items-center justify-between mb-0.5">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Manual Readiness Gates</div>
+              <ProvenanceBadge state="USER_INPUT" />
+            </div>
             <p className="mt-1 text-[9px] text-white/25 leading-relaxed">
               Mark when YOU have verified on chart. Cannot be auto-satisfied — this is the human lock.
             </p>
@@ -277,7 +360,10 @@ const CommandScreen = () => {
           <div className="rounded-3xl border p-5" style={{ borderColor: style.border, background: style.bg }}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: style.fg }}>Command State</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: style.fg }}>Command State</div>
+                  <ProvenanceBadge state={quoteProv} />
+                </div>
                 <div className="mt-1 text-5xl font-black tracking-tight" style={{ color: style.fg }}>{style.label}</div>
               </div>
               <div className="text-right">
@@ -315,7 +401,10 @@ const CommandScreen = () => {
             {/* 4-LOCKS */}
             <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA 4-Locks</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA 4-Locks</div>
+                  <ProvenanceBadge state="MODEL_INFERENCE" />
+                </div>
                 <div className={`text-[10px] font-bold tabular-nums ${locksActive === 4 ? "text-emerald-400" : locksActive >= 2 ? "text-amber-400" : "text-red-400"}`}>
                   {locksActive}/4 engaged
                 </div>
@@ -357,7 +446,10 @@ const CommandScreen = () => {
             {/* Factor bars */}
             <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA Intelligence</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA Intelligence</div>
+                  <ProvenanceBadge state="MODEL_INFERENCE" />
+                </div>
                 <div className="flex items-center gap-3">
                   {exa.winRate != null && (
                     <span className="text-[9px] text-white/30">
@@ -415,7 +507,10 @@ const CommandScreen = () => {
           <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Trade Plan Inputs</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Trade Plan Inputs</div>
+                  <ProvenanceBadge state="USER_INPUT" />
+                </div>
                 <div className="text-xs text-white/35">Manual until live SMC engine writes these fields.</div>
               </div>
               <div className="flex items-center gap-2">

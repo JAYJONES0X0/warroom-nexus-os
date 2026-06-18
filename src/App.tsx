@@ -29,6 +29,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<CommandScreen />} />
             <Route path="/command" element={<CommandScreen />} />
+            <Route path="/cosmos" element={<Index />} />
             <Route path="/legacy-home" element={<Index />} />
             <Route path="/execution" element={<ExecutionScreen />} />
             <Route path="/intelligence" element={<IntelligenceScreen />} />
