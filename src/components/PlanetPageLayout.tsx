@@ -2,7 +2,6 @@ import { useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { useNavigate } from "react-router-dom";
 
 const SpinningPlanet = ({
   texture,
@@ -53,7 +52,6 @@ export const PlanetPageLayout = ({
   screenName,
   screenDesc,
 }: PlanetPageLayoutProps) => {
-  const navigate = useNavigate();
   const scrollRef = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -126,24 +124,19 @@ export const PlanetPageLayout = ({
         }}
       />
 
-      {/* Scrollable content — left 58% */}
+      {/* Scrollable content — left portion, offset for OS shell (left rail 52px, top bar 44px) */}
       <div
         ref={contentRef}
-        className="absolute left-0 top-0 w-[58vw] h-full overflow-y-auto z-10"
-        style={{ scrollbarWidth: "thin", scrollbarColor: `${glowColor}30 transparent` }}
+        className="absolute z-10 overflow-y-auto"
+        style={{
+          left: 52, top: 44,
+          width: "calc(58vw - 52px)", height: "calc(100vh - 44px)",
+          scrollbarWidth: "thin", scrollbarColor: `${glowColor}30 transparent`,
+        }}
       >
-        {/* Back to home */}
-        <button
-          onClick={() => navigate("/")}
-          className="fixed top-5 left-6 z-20 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-all hover:opacity-100 opacity-60 px-3 py-1.5 rounded-lg border"
-          style={{ color: glowColor, borderColor: `${glowColor}30`, background: `${glowColor}08` }}
-        >
-          ← NEXUS
-        </button>
-
         {/* Page header */}
         <div
-          className="px-14 pt-20 pb-10 border-b"
+          className="px-10 pt-8 pb-8 border-b"
           style={{ borderColor: `${glowColor}15` }}
         >
           <div
@@ -168,7 +161,7 @@ export const PlanetPageLayout = ({
         </div>
 
         {/* Content */}
-        <div className="px-14 py-10">{children}</div>
+        <div className="px-10 py-8">{children}</div>
 
         {/* Bottom spacer */}
         <div className="h-20" />

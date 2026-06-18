@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
 import { useWarroom } from "@/context/WarroomStateContext";
@@ -129,7 +128,7 @@ function FactorBar({ label, value, note }: { label: string; value: number; note:
 }
 
 const CommandScreen = () => {
-  const navigate = useNavigate();
+
   const {
     state,
     setAsset,
@@ -272,23 +271,6 @@ const CommandScreen = () => {
 
   return (
     <div className="min-h-screen bg-[#020508] text-white" style={{ fontFamily: "monospace" }}>
-      {/* Top nav */}
-      <div className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#020508]/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate("/markets")} className="text-[10px] uppercase tracking-[0.2em] text-white/35 hover:text-white">Markets</button>
-          <div className="h-4 w-px bg-white/10" />
-          <div>
-            <div className="text-xs font-black tracking-[0.25em] text-red-400">WARROOM NEXUS</div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-white/25">Command · execution intelligence terminal</div>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => navigate("/cosmos")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Cosmos</button>
-            <button onClick={() => navigate("/polymarket")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Polymarket Module</button>
-            <button onClick={() => navigate("/settings")} className="rounded border border-white/10 px-2 py-1 text-[9px] uppercase text-white/35 hover:text-white">Settings</button>
-          </div>
-        </div>
-      </div>
-
       <main className="grid gap-4 p-4 xl:grid-cols-[280px_1fr_360px]">
         {/* ── LEFT COLUMN ── */}
         <aside className="space-y-4">
