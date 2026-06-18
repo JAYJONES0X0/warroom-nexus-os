@@ -157,7 +157,7 @@ const ExecutionScreen = () => {
     <PlanetPageLayout
       texture={executionTexture}
       glowColor="#ffdd00"
-      bgColor="#0a0800"
+      bgColor="#0d0a05"
       screenName="EXECUTION CENTER"
       screenDesc="Signal intelligence · EXA confluence scoring · 4-LOCKS gate · Reference levels for MT4/MT5"
     >

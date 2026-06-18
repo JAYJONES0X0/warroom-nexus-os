@@ -6,7 +6,7 @@ const AnalyticsScreen = () => (
   <PlanetPageLayout
     texture={analyticsTexture}
     glowColor="#0099ff"
-    bgColor="#00050f"
+    bgColor="#010510"
     screenName="ANALYTICS + POLYMARKET"
     screenDesc="Prediction markets · Confluence scoring · Whale detection · Kelly sizing"
   >

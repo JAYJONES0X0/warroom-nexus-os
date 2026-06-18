@@ -3,13 +3,13 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
 
-import earthTex   from "@/assets/textures/nexus-earth-realistic.jpg";
-import jupiterTex from "@/assets/textures/jupiter.jpg";
-import saturnTex  from "@/assets/textures/saturn.jpg";
-import marsTex    from "@/assets/textures/mars.jpg";
-import venusTex   from "@/assets/textures/venus.jpg";
-import mercuryTex from "@/assets/textures/mercury.jpg";
-import neptuneTex from "@/assets/textures/neptune.jpg";
+import earthTex   from "@/assets/textures/real_earth_daymap.jpg";
+import jupiterTex from "@/assets/textures/real_jupiter.jpg";
+import saturnTex  from "@/assets/textures/real_saturn.jpg";
+import marsTex    from "@/assets/textures/real_mars.jpg";
+import venusTex   from "@/assets/textures/real_venus.jpg";
+import mercuryTex from "@/assets/textures/real_mercury.jpg";
+import neptuneTex from "@/assets/textures/real_neptune.jpg";
 import uranusTex  from "@/assets/textures/uranus.jpg";
 import moonTex    from "@/assets/textures/moon.jpg";
 
@@ -20,9 +20,8 @@ export interface PlanetStateInfo {
 }
 
 function moduleStatusColor(status: PlanetStateInfo["status"] | undefined, baseGlow: string): string {
-  if (status === "FROZEN") return "#4b5563";
   if (status === "BUILDING") return "#f59e0b";
-  return baseGlow;
+  return baseGlow; // FROZEN keeps its module color, dimmed via emissiveIntensity
 }
 
 const formatPair = (key: string): string => {
@@ -197,7 +196,7 @@ const Planet = ({ assetKey, texture, distance, angle, size, baseGlow, rings, orb
         <meshStandardMaterial
           map={tex} metalness={0.05} roughness={0.82}
           emissive={new THREE.Color(activeColor)}
-          emissiveIntensity={hovered ? 0.45 : state?.status === "FROZEN" ? 0.03 : hasState ? 0.14 : 0.04}
+          emissiveIntensity={hovered ? 0.55 : state?.status === "FROZEN" ? 0.12 : hasState ? 0.22 : 0.08}
         />
       </mesh>
       <Atmo radius={size} color={activeColor} />
@@ -243,7 +242,7 @@ const Planet = ({ assetKey, texture, distance, angle, size, baseGlow, rings, orb
         </Html>
       )}
 
-      <pointLight color={activeColor} intensity={hovered ? 3.2 : state?.status === "FROZEN" ? 0.4 : hasState ? 1.4 : 0.8} distance={20} />
+      <pointLight color={activeColor} intensity={hovered ? 3.2 : state?.status === "FROZEN" ? 1.0 : hasState ? 1.8 : 1.0} distance={22} />
     </group>
   );
 };
@@ -296,7 +295,7 @@ const PLANET_DEFS = [
   { assetKey: "risk",       texture: marsTex,    distance: 30, angle: 72,  size: 2.6, baseGlow: "#ff6644", orbitSpeed: 0.00022 },
   { assetKey: "settings",   texture: mercuryTex, distance: 30, angle: 144, size: 2.3, baseGlow: "#6b7280", orbitSpeed: 0.00031 },
   // Decorative
-  { assetKey: "",           texture: moonTex,    distance: 30, angle: 216, size: 2.0, baseGlow: "#778899", orbitSpeed: 0.00025 },
+  { assetKey: "",           texture: venusTex,   distance: 30, angle: 216, size: 2.0, baseGlow: "#f97316", orbitSpeed: 0.00025 },
 ] as const;
 
 // ─── Main export ──────────────────────────────────────────────────────────────

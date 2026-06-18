@@ -19,7 +19,7 @@ const AlertsScreen = () => {
     <PlanetPageLayout
       texture={alertsTexture}
       glowColor="#ff8800"
-      bgColor="#0a0400"
+      bgColor="#0d0508"
       screenName="ALERT MANAGER"
       screenDesc={`${triggered} triggered · ${alerts.length} total · Real-time confluence triggers`}
     >

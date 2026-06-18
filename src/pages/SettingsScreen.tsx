@@ -33,7 +33,7 @@ const SettingsScreen = () => {
     <PlanetPageLayout
       texture={settingsTexture}
       glowColor="#00ff88"
-      bgColor="#000a05"
+      bgColor="#030a18"
       screenName="SETTINGS"
       screenDesc="Your operating preferences · WARROOM is an intelligence layer, not a broker"
     >

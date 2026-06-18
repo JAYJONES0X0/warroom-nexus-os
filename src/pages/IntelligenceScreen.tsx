@@ -141,7 +141,7 @@ const IntelligenceScreen = () => {
     <PlanetPageLayout
       texture={intelligenceTexture}
       glowColor="#aa44ff"
-      bgColor="#07000f"
+      bgColor="#05010e"
       screenName="INTELLIGENCE CORE"
       screenDesc="Pattern detection · ARCHON override protocol · EXA Terminal"
     >

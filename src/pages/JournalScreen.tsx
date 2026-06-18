@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
-import journalTexture from "@/assets/textures/real_mercury.jpg";
+import journalTexture from "@/assets/textures/real_earth_daymap.jpg";
 
 const ENTRIES = [
   { date: "2026-04-17", asset: "EUR/USD", side: "BUY", result: "+2.8R", note: "Clean BOS on H4. Entered on FVG retest at London open. SL swept clean.", tags: ["BOS", "FVG", "London"] },
@@ -15,8 +15,8 @@ const JournalScreen = () => {
   return (
     <PlanetPageLayout
       texture={journalTexture}
-      glowColor="#c0c0c0"
-      bgColor="#080808"
+      glowColor="#10b981"
+      bgColor="#030a18"
       screenName="TRADE JOURNAL"
       screenDesc="Session logs · R tracking · Pattern reinforcement · Psychological edge"
     >

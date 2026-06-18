@@ -6,7 +6,7 @@ const ReportsScreen = () => (
   <PlanetPageLayout
     texture={historyTexture}
     glowColor="#44ffaa"
-    bgColor="#000f05"
+    bgColor="#010e06"
     screenName="REPORTS + AUDIT"
     screenDesc="EXA Protection Audit · Session logs · Win rate · Drawdown tracking"
   >
