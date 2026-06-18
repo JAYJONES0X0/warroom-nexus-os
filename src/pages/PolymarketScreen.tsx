@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { usePolymarkets, PolyMarket } from "@/hooks/usePolymarkets";
 import { useEdges } from "@/hooks/useEdges";
 import { ScreenAgent } from "@/components/ScreenAgent";
@@ -239,7 +238,6 @@ const ArbRow = ({ e }: { e: ArbEdge }) => {
 
 // ─── main ────────────────────────────────────────────────────────────────────
 const PolymarketScreen = () => {
-  const navigate = useNavigate();
   const { markets, fetchedAt, loading, error } = usePolymarkets();
   const eng = useEdges(100);
   const [plays, setPlays] = useState<Play[]>(getPlays);
@@ -304,8 +302,9 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
 
   return (
     <div
-      className="fixed inset-0 text-white flex flex-col"
+      className="fixed text-white flex flex-col"
       style={{
+        top: 44, left: 52, right: 0, bottom: 0,
         fontFamily: "monospace",
         background: `radial-gradient(ellipse at 25% 0%, ${heroFlow}12 0%, #060411 45%), radial-gradient(ellipse at 75% 100%, ${heroFlow}08 0%, transparent 50%), #060411`,
       }}
@@ -320,8 +319,6 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        <button onClick={() => navigate("/")} className="text-[10px] text-white/30 hover:text-white/60 transition-colors uppercase tracking-wider">← NEXUS</button>
-        <div className="w-px h-4 bg-white/10" />
         <div className="text-[11px] font-black text-violet-400 uppercase tracking-widest">POLYMARKET PULSE</div>
         <div className="text-[9px] text-white/20">live money flow · accountable reads</div>
         <div className="ml-auto flex items-center gap-3">

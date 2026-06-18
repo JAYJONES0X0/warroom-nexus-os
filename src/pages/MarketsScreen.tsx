@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores } from "@/hooks/useEXAScores";
@@ -116,7 +115,6 @@ const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const MarketsScreen = () => {
-  const navigate   = useNavigate();
   const { prices, source } = usePrices();
   const [selected, setSelected]  = useState("XAUUSD");
   const [tf, setTf]              = useState("1h");
@@ -147,17 +145,12 @@ const MarketsScreen = () => {
   const maxChange = Math.max(...Object.values(prices).map((x: any) => Math.abs(x.changePct ?? 0)), 0.01);
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#020508]" style={{ fontFamily: "monospace" }}>
+    <div className="fixed flex flex-col overflow-hidden bg-[#020508]" style={{ fontFamily: "monospace", top: 44, left: 52, right: 0, bottom: 0 }}>
       <div className="absolute inset-0 z-10 flex flex-col">
 
         {/* ── TOP BAR ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-0 px-3 h-9 border-b shrink-0"
           style={{ borderColor: "rgba(255,68,68,0.12)", background: "rgba(0,0,0,0.3)" }}>
-          <button onClick={() => navigate("/")}
-            className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/70 transition-colors pr-4 border-r border-white/[0.06] mr-3 h-full uppercase tracking-[0.15em]">
-            ← NEXUS
-          </button>
-
           <div className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ background: "#ff4444", boxShadow: "0 0 8px #ff4444" }} />
           <span className="text-[11px] font-black tracking-[0.2em] text-red-400 mr-4">GLOBAL MARKETS</span>
 
