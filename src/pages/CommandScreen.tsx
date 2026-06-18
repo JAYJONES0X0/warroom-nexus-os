@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/hooks/usePrices";
 import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
 import { useWarroom } from "@/context/WarroomStateContext";
+import { ScreenAgent } from "@/components/ScreenAgent";
 import {
   WARROOM_ASSETS,
   WARROOM_TIMEFRAMES,
@@ -250,6 +251,45 @@ const CommandScreen = () => {
     return () => clearInterval(id);
   }, []);
 
+  // NEXUS-C system context — full warroom state bound to the agent
+  const nexusCContext = useMemo(() => [
+    "You are NEXUS-C, the WARROOM command-screen analyst. You are NOT a general chatbot.",
+    "You receive live OS state. Respond ONLY in the fixed WARROOM READ format below.",
+    "Never invent price levels. Never say 'looks interesting'. If data is missing, output MISSING_DATA.",
+    "Keep each field to one line. No prose outside the format.",
+    "",
+    `Asset: ${asset.label}`,
+    `Timeframe: ${state.selectedTimeframe}`,
+    `Session: ${state.selectedSession}`,
+    `Price: ${state.liveQuote ? formatPrice(state.selectedAsset, state.liveQuote.price) : "MISSING"}`,
+    `Bias: ${decision.direction}`,
+    `Command: ${decision.command}`,
+    `Confluence: ${decision.confluence.score}%`,
+    `Locks: ${locksActive}/4`,
+    `Entry: ${formatPrice(state.selectedAsset, decision.entry)}`,
+    `Stop: ${formatPrice(state.selectedAsset, decision.stop)}`,
+    `TP1: ${formatPrice(state.selectedAsset, decision.tp1)}`,
+    `TP2: ${formatPrice(state.selectedAsset, decision.tp2)}`,
+    `R:R: ${autoRR ? `${autoRR}:1` : "—"}`,
+    `Lot size: ${risk.lots != null ? risk.lots.toFixed(2) : "—"} (${risk.note})`,
+    `Account: ${state.accountProfile.mode} · ${state.accountProfile.balance} ${state.accountProfile.currency} · ${state.accountProfile.riskPct}% risk = ${calculateRiskAmount(state.accountProfile).toFixed(2)} ${state.accountProfile.currency}`,
+    `Max daily loss: ${state.accountProfile.maxDailyLossPct}% = ${(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(2)} ${state.accountProfile.currency}`,
+    `Blockers: ${decision.confluence.blockers.length ? decision.confluence.blockers.slice(0, 4).join(" | ") : "None"}`,
+    `Missing: ${decision.missingData.length ? decision.missingData.join(" | ") : "None"}`,
+    "",
+    "Response format (use exactly):",
+    "WARROOM READ",
+    "Asset:",
+    "Bias:",
+    "Current phase:",
+    "Setup status:",
+    "Action:",
+    "Lot size:",
+    "Invalidation:",
+    "Next check:",
+    "Missing data:",
+  ].join("\n"), [asset.label, state, decision, locksActive, autoRR, risk]);
+
   const aiRead = [
     "WARROOM READ",
     "",
@@ -347,10 +387,40 @@ const CommandScreen = () => {
               onChange={(e) => updateAccount({ riskPct: Number(e.target.value) || 0 })}
               className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
             />
-            <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/30 p-3 text-xs">
-              <div className="text-white/35">Risk amount</div>
-              <div className="text-xl font-black text-emerald-400">£{calculateRiskAmount(state.accountProfile).toFixed(2)}</div>
-              <div className="mt-1 text-[10px] text-white/35">{risk.note}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[9px] uppercase tracking-[0.16em] text-white/30">Max Daily Loss %</span>
+                <input
+                  type="number" step="0.5" min="0" max="10"
+                  value={state.accountProfile.maxDailyLossPct}
+                  onChange={(e) => updateAccount({ maxDailyLossPct: Number(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[9px] uppercase tracking-[0.16em] text-white/30">Max Weekly %</span>
+                <input
+                  type="number" step="0.5" min="0" max="20"
+                  value={state.accountProfile.maxWeeklyLossPct}
+                  onChange={(e) => updateAccount({ maxWeeklyLossPct: Number(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+                />
+              </label>
+            </div>
+            <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/30 p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-white/35">Risk per trade</span>
+                <span className="text-emerald-400 font-black">£{calculateRiskAmount(state.accountProfile).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/35">Max daily loss</span>
+                <span className="text-amber-400 font-black">£{(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/35">Max weekly loss</span>
+                <span className="text-red-400/80 font-black">£{(state.accountProfile.balance * state.accountProfile.maxWeeklyLossPct / 100).toFixed(2)}</span>
+              </div>
+              <div className="mt-1 text-[9px] text-white/25">{risk.note}</div>
             </div>
           </section>
 
@@ -430,6 +500,33 @@ const CommandScreen = () => {
               <Field label="Lot Size" value={risk.lots == null ? "—" : risk.lots.toFixed(2)} />
             </div>
           </div>
+
+          {/* AUTHORIZE risk confirmation — only shown when execution is sanctioned */}
+          {decision.command === "AUTHORIZE" && risk.lots != null && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-black">Risk Confirmation</div>
+                <div className="text-[9px] text-emerald-400/60">verify before executing</div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-[10px]">
+                <div>
+                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Lot Size</div>
+                  <div className="text-white font-black text-base">{risk.lots.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Risk Amount</div>
+                  <div className="text-emerald-400 font-black text-base">£{risk.riskAmount.toFixed(0)}</div>
+                </div>
+                <div>
+                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Stop Distance</div>
+                  <div className="text-white font-black text-base">{risk.stopDistance != null ? `${risk.stopDistance.toFixed(asset.decimals)} (${(risk.stopDistance / asset.pipSize).toFixed(0)} pips)` : "—"}</div>
+                </div>
+              </div>
+              <div className="mt-2 text-[9px] text-white/30 border-t border-emerald-500/10 pt-2">
+                Max daily loss: £{(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(0)} ({state.accountProfile.maxDailyLossPct}%) · Max weekly: £{(state.accountProfile.balance * state.accountProfile.maxWeeklyLossPct / 100).toFixed(0)} ({state.accountProfile.maxWeeklyLossPct}%)
+              </div>
+            </div>
+          )}
 
           {/* EXA Intelligence — 4-LOCKS + Factor bars */}
           <div className="grid gap-4 lg:grid-cols-2">
@@ -633,6 +730,23 @@ const CommandScreen = () => {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* NEXUS-C — context-bound command analyst */}
+          <section className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.02] overflow-hidden" style={{ height: 280 }}>
+            <div className="px-4 pt-3 pb-2 border-b border-white/[0.05]">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400">NEXUS-C · Command Analyst</div>
+              <div className="text-[9px] text-white/20 mt-0.5">context-bound · WARROOM READ format</div>
+            </div>
+            <div style={{ height: 232 }}>
+              <ScreenAgent
+                agentId="NEXUS-C"
+                agentRole="command analyst"
+                glowColor="#10b981"
+                systemContext={nexusCContext}
+                autoPrompt={`Give me the current WARROOM READ for ${asset.label}.`}
+              />
+            </div>
           </section>
 
           {/* Session Intel — replaces Architecture Gate dev checklist */}

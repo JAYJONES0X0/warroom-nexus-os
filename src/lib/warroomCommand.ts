@@ -38,6 +38,7 @@ export interface AccountProfile {
   currency: "GBP" | "USD" | "EUR";
   riskPct: number;
   maxDailyLossPct: number;
+  maxWeeklyLossPct: number;
   maxOpenTrades: number;
 }
 
@@ -250,6 +251,7 @@ export const DEFAULT_WARROOM_STATE: WarroomState = {
     currency: "GBP",
     riskPct: 1,
     maxDailyLossPct: 2,
+    maxWeeklyLossPct: 4,
     maxOpenTrades: 2,
   },
   liveQuote: null,
