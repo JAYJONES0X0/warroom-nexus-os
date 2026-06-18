@@ -69,6 +69,28 @@ const VERDICT_DOT: Record<string, string> = {
   DENIED:     "#ef4444",
 };
 
+const SESSION_RECOMMENDATION: Record<string, string> = {
+  "LONDON KILLZONE":    "Prime execution window. High-probability setups active.",
+  "NY AM / OVERLAP":    "High volatility overlap. Strong setups only.",
+  "LONDON/NY OVERLAP":  "High volatility overlap. Strong setups only.",
+  "LONDON SESSION":     "Standard session. Watch for continuation setups.",
+  "NY PM / MANAGEMENT": "End of session. Manage open positions only.",
+  "ASIA RANGE":         "Low volatility range. USDJPY and crypto preferred.",
+  "WEEKEND / CLOSED":   "Market closed. Plan only. No execution.",
+  "DEAD ZONE":          "Low liquidity. No new trades until next session.",
+};
+
+const SESSION_ACCENT: Record<string, string> = {
+  "LONDON KILLZONE":   "#f59e0b",
+  "NY AM":             "#10b981",
+  "OVERLAP":           "#10b981",
+  "LONDON SESSION":    "#6ee7b7",
+  "NY PM":             "#38bdf8",
+  "ASIA":              "#a855f7",
+  "WEEKEND":           "#374151",
+  "DEAD ZONE":         "#374151",
+};
+
 const shortAssetKey = (key: string) => {
   if (key === "USDJPY") return "JPY";
   if (key === "NAS100") return "NAS";
@@ -192,6 +214,34 @@ const CommandScreen = () => {
     : source === "error" ? "UNVERIFIED"
     : state.liveQuote.stale ? "STALE"
     : "LIVE";
+
+  // Computed display values
+  const sessionAccent = Object.entries(SESSION_ACCENT).find(([k]) => state.selectedSession.toUpperCase().includes(k))?.[1] ?? "#6b7280";
+  const biasColor = decision.direction === "LONG" ? "#10b981" : decision.direction === "SHORT" ? "#ef4444" : "rgba(255,255,255,0.45)";
+  const confluenceColor = decision.confluence.score >= 85 ? "#10b981" : decision.confluence.score >= 62 ? "#f59e0b" : "#ef4444";
+
+  const commandDirective = (() => {
+    switch (decision.command) {
+      case "AUTHORIZE":
+        return `Execute at entry. ${risk.lots != null ? `${risk.lots.toFixed(2)} lots.` : ""} Stops placed.`;
+      case "DELAY": {
+        const m = decision.missingData.slice(0, 2).join(", ");
+        return m ? `Stand by. Missing: ${m}.` : "Stand by. Wait for confirmation.";
+      }
+      case "DENY":
+        return "No trade. Conditions not met. Wait for next structure.";
+      case "MISSING_DATA": {
+        const m = decision.missingData.slice(0, 2).join(", ");
+        return m ? `Complete data: ${m}.` : "Enter asset data to evaluate.";
+      }
+      case "MONITOR":
+        return "Watching conditions. Re-evaluate at next session.";
+      case "INVALIDATED":
+        return "Setup invalidated. Clear plan and restart analysis.";
+      default:
+        return "Awaiting asset data.";
+    }
+  })();
 
   // Session countdown — updates every 60s
   const [nextKZ, setNextKZ] = useState(() => getNextKillzone());
@@ -365,6 +415,9 @@ const CommandScreen = () => {
                   <ProvenanceBadge state={quoteProv} />
                 </div>
                 <div className="mt-1 text-5xl font-black tracking-tight" style={{ color: style.fg }}>{style.label}</div>
+                <div className="mt-2 text-[10px] leading-relaxed max-w-[260px]" style={{ color: `${style.fg}99` }}>
+                  {commandDirective}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{asset.label}</div>
@@ -559,22 +612,69 @@ const CommandScreen = () => {
 
         {/* ── RIGHT COLUMN ── */}
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-violet-400">Bound Agent Output</div>
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-violet-500/15 bg-black/40 p-3 text-[11px] leading-relaxed text-white/70">
-              {aiRead}
-            </pre>
+          {/* EXA Structured Read — replaces pre-block debug output */}
+          <section className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.03] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-violet-400">EXA Operator Read</div>
+                <ProvenanceBadge state="MODEL_INFERENCE" />
+              </div>
+              <button
+                onClick={() => navigator.clipboard?.writeText(aiRead)}
+                className="text-[8px] uppercase tracking-wider text-white/20 hover:text-white/50 transition-colors"
+              >
+                copy
+              </button>
+            </div>
+            <div className="space-y-2">
+              {([
+                { label: "asset",     value: asset.label,             color: "rgba(255,255,255,0.88)" },
+                { label: "session",   value: state.selectedSession,    color: sessionAccent },
+                { label: "bias",      value: decision.direction,       color: biasColor },
+                { label: "phase",     value: style.label,              color: style.fg },
+                { label: "confluenc", value: `${decision.confluence.score}%`, color: confluenceColor },
+                { label: "action",    value: commandDirective,         color: "rgba(255,255,255,0.65)" },
+                ...(risk.lots != null ? [{ label: "lot size", value: `${risk.lots.toFixed(2)} · ${risk.note}`, color: "rgba(255,255,255,0.38)" }] : []),
+                ...(autoRR ? [{ label: "r:r", value: `${autoRR}:1`, color: "rgba(255,255,255,0.38)" }] : []),
+              ] as { label: string; value: string; color: string }[]).map(({ label, value, color }) => (
+                <div key={label} className="flex items-baseline gap-2">
+                  <span className="text-[8.5px] uppercase tracking-[0.1em] text-white/22 shrink-0" style={{ minWidth: "68px" }}>{label}</span>
+                  <span className="text-[11px] font-black leading-tight" style={{ color }}>{value}</span>
+                </div>
+              ))}
+            </div>
+            {decision.missingData.length > 0 && (
+              <div className="mt-3 pt-2.5 border-t border-violet-500/10">
+                <div className="text-[8px] uppercase tracking-wider text-violet-400/50 mb-1.5">Missing data</div>
+                {decision.missingData.slice(0, 3).map((m, i) => (
+                  <div key={i} className="text-[9px] text-white/30 leading-relaxed">◌ {m}</div>
+                ))}
+              </div>
+            )}
           </section>
 
+          {/* Session Intel — replaces Architecture Gate dev checklist */}
           <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Architecture Gate</div>
-            <ul className="mt-3 space-y-2 text-xs text-white/55">
-              <li>✓ Command is default operating layer</li>
-              <li>✓ Asset/timeframe from global WARROOM state</li>
-              <li>✓ Missing data cannot become fake authorization</li>
-              <li>✓ £100 is not product identity; account is configurable</li>
-              <li>✓ Polymarket is demoted to side module</li>
-            </ul>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">Session Intel</div>
+            <div className="text-sm font-black uppercase tracking-wide leading-tight" style={{ color: sessionAccent }}>
+              {state.selectedSession}
+            </div>
+            <div className="text-[9px] text-white/35 mt-1.5 leading-relaxed">
+              {SESSION_RECOMMENDATION[state.selectedSession] ?? "Monitor conditions."}
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/[0.05]">
+              <div className="text-[8px] uppercase tracking-wider text-white/22 mb-1.5">Next Killzone</div>
+              {nextKZ ? (
+                <div>
+                  <div className="text-[11px] font-black" style={{ color: nextKZ.minutesAway < 60 ? "#f59e0b" : "rgba(255,255,255,0.55)" }}>
+                    {nextKZ.label}
+                  </div>
+                  <div className="text-[9px] text-white/30 mt-0.5">in {formatCountdown(nextKZ.minutesAway)}</div>
+                </div>
+              ) : (
+                <div className="text-[10px] font-bold" style={{ color: sessionAccent }}>Currently active</div>
+              )}
+            </div>
           </section>
 
           {/* Path to AUTHORIZE — live status */}

@@ -19,7 +19,7 @@ const MODULE_ROUTES: Record<string, string> = {
 
 const MODULE_STATES: Record<string, PlanetStateInfo> = {
   command:    { status: "LIVE",     description: "Execution intelligence OS" },
-  markets:    { status: "BUILDING", description: "Chart terminal" },
+  markets:    { status: "LIVE",     description: "Chart terminal · TradingView" },
   intel:      { status: "FROZEN",   description: "World state · next sprint" },
   polymarket: { status: "LIVE",     description: "Prediction module" },
   journal:    { status: "FROZEN",   description: "Trade journal" },
