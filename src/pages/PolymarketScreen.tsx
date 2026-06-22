@@ -245,6 +245,7 @@ const PolymarketScreen = () => {
   const [watch, setWatch] = useState<string[]>(getWatch);
   const [showArb, setShowArb] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [showScanner, setShowScanner] = useState(true);
   const riskPct = getRiskPct();
   const stats = playStats(plays);
   const readStats = computeStats(record);
@@ -363,6 +364,84 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: "thin" }}>
+          {/* Scanner Process Log */}
+          {(() => {
+            const sc = eng.scanned;
+            const rj = eng.rejectedSummary;
+            const edgeAge = eng.fetchedAt ? Math.max(0, Math.floor((Date.now() - eng.fetchedAt) / 1000)) : null;
+            const scanColor = eng.stale ? "#f59e0b" : eng.error ? "#ef4444" : sc ? "#a855f7" : "#6b7280";
+            const scanLabel = eng.loading ? "SCANNING…" : eng.error ? "SCAN ERR" : eng.stale ? "STALE" : sc ? "SCAN OK" : "NO DATA";
+            return (
+              <div className="mb-5">
+                <button
+                  onClick={() => setShowScanner(s => !s)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] mb-1 transition-all"
+                  style={{ border: `1px solid ${scanColor}22`, background: `${scanColor}06`, backdropFilter: "blur(8px)" }}
+                >
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded" style={{ color: scanColor, background: `${scanColor}18` }}>
+                    SCANNER BRAIN
+                  </span>
+                  <span className="text-white/45">
+                    {sc
+                      ? `${sc.events} events · ${sc.candidates} candidates · ${sc.live} live · ${sc.rejected} rejected`
+                      : eng.loading ? "scanning…" : eng.error ? eng.error : "awaiting scan"}
+                  </span>
+                  <span className="text-[8px] font-black ml-1 px-1.5 py-0.5 rounded" style={{ color: scanColor, background: `${scanColor}14` }}>{scanLabel}</span>
+                  {edgeAge !== null && <span className="text-white/20 text-[8px] ml-auto mr-1">{edgeAge < 60 ? `${edgeAge}s ago` : `${Math.floor(edgeAge / 60)}m ago`}</span>}
+                  <span className="text-white/30">{showScanner ? "▾" : "▸"}</span>
+                </button>
+                {showScanner && (
+                  <div
+                    className="px-4 py-3 rounded-xl text-[10px] font-mono"
+                    style={{ border: `1px solid ${scanColor}15`, background: `${scanColor}04` }}
+                  >
+                    <div className="grid grid-cols-4 gap-x-4 gap-y-2 mb-3">
+                      {([
+                        ["Markets fetched", markets.length, "#a855f7"],
+                        ["Events walked",   sc?.events ?? "—",        "#a855f7"],
+                        ["NegRisk events",  sc?.negRiskEvents ?? "—", "#a855f7"],
+                        ["Candidates",      sc?.candidates ?? "—",    "#a855f7"],
+                        ["Theoretical",     sc?.theoretical ?? "—",   "#6b7280"],
+                        ["Executable",      sc?.executable ?? "—",    "#38bdf8"],
+                        ["Live edges",      sc?.live ?? "—",          sc?.live ? "#10b981" : "#6b7280"],
+                        ["Rejected",        sc?.rejected ?? "—",      sc?.rejected ? "#f59e0b" : "#6b7280"],
+                      ] as [string, number | string, string][]).map(([label, val, col]) => (
+                        <div key={label}>
+                          <div className="text-[8px] text-white/25 uppercase tracking-wider mb-0.5">{label}</div>
+                          <div className="text-[13px] font-black tabular-nums" style={{ color: col }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {rj && (sc?.rejected ?? 0) > 0 && (
+                      <div className="pt-2 border-t border-white/[0.05]">
+                        <div className="text-[8px] text-white/25 uppercase tracking-wider mb-1.5">Rejection reasons</div>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            ["Insufficient depth", rj.insufficientDepth, "#f59e0b"],
+                            ["Stale book",         rj.staleBook,         "#ef4444"],
+                            ["Augmented only",     rj.augmented,         "#6b7280"],
+                            ["Theoretical only",   rj.theoreticalOnly,   "#6b7280"],
+                          ] as [string, number, string][]).filter(([,n]) => n > 0).map(([label, n, col]) => (
+                            <span key={label} className="text-[9px] font-black px-2 py-0.5 rounded" style={{ color: col, background: `${col}12`, border: `1px solid ${col}25` }}>
+                              {label} · {n}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-3 text-[8px] text-white/25">
+                      <span>Mode: <span className="text-white/50 font-black uppercase">{eng.dataMode ?? "—"}</span></span>
+                      {eng.stale && eng.lastGoodAt && (
+                        <span>Last good: <span className="text-amber-400/70">{Math.floor((Date.now() - eng.lastGoodAt) / 1000 / 60)}m ago</span></span>
+                      )}
+                      {eng.error && <span className="text-red-400/70">{eng.error}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Section header */}
           <div className="flex items-center justify-between mb-4">
             <div className="text-[11px] uppercase tracking-[0.2em] text-violet-400/70">Today's Biggest Moves</div>
