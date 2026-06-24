@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { useEXAScores } from "@/hooks/useEXAScores";
 import { ASSET_BRAIN } from "@/lib/warroomBrain";
@@ -39,7 +39,7 @@ function KellyRow({ pair, accountSize, riskPerTrade }: { pair: string; accountSi
   const halfKelly = kelly / 2;
   const fracKelly = Math.max(0, Math.min(halfKelly, riskPerTrade));
   return (
-    <div className="flex items-center justify-between p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+    <div className="flex items-center justify-between p-3 glass-card">
       <div className="flex items-center gap-3">
         <span className="text-xs font-black text-white w-16">{brain.label}</span>
         <span className="text-[10px] font-mono text-white/30">WR {brain.winRate}%</span>

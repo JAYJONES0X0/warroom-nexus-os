@@ -110,3 +110,142 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* ── WARROOM GLASS CARD SYSTEM ── */
+@layer components {
+  .glass-card {
+    position: relative;
+    overflow: hidden;
+    background: hsl(228 35% 6% / 0.85);
+    border: 1px solid hsl(33 50% 65% / 0.12);
+    border-radius: 1rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      0 4px 24px -4px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  /* Top-left arc — glass reflection */
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 30%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Top edge gold shimmer line */
+  .glass-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, hsl(33 50% 65% / 0.2) 35%, hsl(33 50% 65% / 0.1) 70%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glass-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .glass-card:hover {
+    border-color: hsl(33 50% 65% / 0.25);
+    box-shadow:
+      0 8px 32px -4px rgba(0, 0, 0, 0.7),
+      inset 3px 0 0 hsl(33 50% 65% / 0.3),
+      inset 0 0 40px hsl(33 50% 65% / 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 1px hsl(33 50% 65% / 0.06);
+  }
+
+  /* Gold — primary accent, key intel panels */
+  .glass-card-gold {
+    background: linear-gradient(135deg, hsl(33 50% 65% / 0.08) 0%, hsl(33 50% 65% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(33 50% 65% / 0.2);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(33 50% 65% / 0.28), inset 0 0 30px hsl(33 50% 65% / 0.04);
+  }
+  .glass-card-gold::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(33 50% 65% / 0.32) 40%, hsl(33 50% 65% / 0.15) 70%, transparent 90%);
+  }
+  .glass-card-gold:hover {
+    border-color: hsl(33 50% 65% / 0.4);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(33 50% 65% / 0.5), inset 0 0 40px hsl(33 50% 65% / 0.07), 0 20px 60px -10px hsl(33 50% 65% / 0.08);
+  }
+
+  /* Green — AUTHORIZE, active, confirmed, live */
+  .glass-card-green {
+    background: linear-gradient(135deg, hsl(142 71% 45% / 0.08) 0%, hsl(142 71% 45% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(142 71% 45% / 0.18);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(142 71% 45% / 0.3), inset 0 0 30px hsl(142 71% 45% / 0.04);
+  }
+  .glass-card-green::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(142 71% 45% / 0.25) 40%, hsl(142 71% 45% / 0.12) 70%, transparent 90%);
+  }
+  .glass-card-green:hover {
+    border-color: hsl(142 71% 45% / 0.35);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(142 71% 45% / 0.45), inset 0 0 40px hsl(142 71% 45% / 0.07), 0 20px 60px -10px hsl(142 71% 45% / 0.08);
+  }
+
+  /* Red — DENY, blocked, danger, alerts */
+  .glass-card-red {
+    background: linear-gradient(135deg, hsl(0 72% 55% / 0.08) 0%, hsl(0 72% 55% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(0 72% 55% / 0.18);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(0 72% 55% / 0.3), inset 0 0 30px hsl(0 72% 55% / 0.04);
+  }
+  .glass-card-red::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(0 72% 55% / 0.25) 40%, hsl(0 72% 55% / 0.12) 70%, transparent 90%);
+  }
+  .glass-card-red:hover {
+    border-color: hsl(0 72% 55% / 0.35);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(0 72% 55% / 0.45), inset 0 0 40px hsl(0 72% 55% / 0.07), 0 20px 60px -10px hsl(0 72% 55% / 0.08);
+  }
+
+  /* Amber — DELAY, warning, monitoring */
+  .glass-card-amber {
+    background: linear-gradient(135deg, hsl(38 92% 50% / 0.08) 0%, hsl(38 92% 50% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(38 92% 50% / 0.18);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(38 92% 50% / 0.3), inset 0 0 30px hsl(38 92% 50% / 0.04);
+  }
+  .glass-card-amber::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(38 92% 50% / 0.28) 40%, hsl(38 92% 50% / 0.12) 70%, transparent 90%);
+  }
+  .glass-card-amber:hover {
+    border-color: hsl(38 92% 50% / 0.38);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(38 92% 50% / 0.48), inset 0 0 40px hsl(38 92% 50% / 0.07), 0 20px 60px -10px hsl(38 92% 50% / 0.08);
+  }
+
+  /* Blue — data, analytics, correlation, intel */
+  .glass-card-blue {
+    background: linear-gradient(135deg, hsl(199 89% 62% / 0.07) 0%, hsl(199 89% 62% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(199 89% 62% / 0.15);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(199 89% 62% / 0.28), inset 0 0 30px hsl(199 89% 62% / 0.04);
+  }
+  .glass-card-blue::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(199 89% 62% / 0.22) 40%, hsl(199 89% 62% / 0.1) 70%, transparent 90%);
+  }
+  .glass-card-blue:hover {
+    border-color: hsl(199 89% 62% / 0.3);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(199 89% 62% / 0.42), inset 0 0 40px hsl(199 89% 62% / 0.06), 0 20px 60px -10px hsl(199 89% 62% / 0.07);
+  }
+
+  /* Purple — model inference, AI panels */
+  .glass-card-purple {
+    background: linear-gradient(135deg, hsl(263 70% 60% / 0.08) 0%, hsl(263 70% 60% / 0.02) 40%, hsl(228 35% 6% / 0.9) 70%);
+    border-color: hsl(263 70% 60% / 0.15);
+    box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6), inset 3px 0 0 hsl(263 70% 60% / 0.28), inset 0 0 30px hsl(263 70% 60% / 0.04);
+  }
+  .glass-card-purple::after {
+    background: linear-gradient(90deg, transparent 10%, hsl(263 70% 60% / 0.22) 40%, hsl(263 70% 60% / 0.1) 70%, transparent 90%);
+  }
+  .glass-card-purple:hover {
+    border-color: hsl(263 70% 60% / 0.3);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.7), inset 3px 0 0 hsl(263 70% 60% / 0.42), inset 0 0 40px hsl(263 70% 60% / 0.06), 0 20px 60px -10px hsl(263 70% 60% / 0.07);
+  }
+}

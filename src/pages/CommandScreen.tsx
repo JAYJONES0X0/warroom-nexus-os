@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
@@ -103,7 +103,7 @@ const shortAssetKey = (key: string) => {
 
 function Field({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3">
+    <div className="glass-card p-3">
       <div className="text-[8px] uppercase tracking-[0.2em] text-white/25">{label}</div>
       <div className="mt-1 text-sm font-black tabular-nums leading-tight" style={{ color: accent ?? "rgba(255,255,255,0.88)" }}>{value}</div>
     </div>
@@ -384,7 +384,7 @@ const CommandScreen = () => {
         <aside className="space-y-3">
 
           {/* Asset selector + constellation */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+          <section className="glass-card rounded-2xl p-3.5">
             <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-2">Asset</div>
             <select
               value={state.selectedAsset}
@@ -431,7 +431,7 @@ const CommandScreen = () => {
           </section>
 
           {/* Account Model */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+          <section className="glass-card rounded-2xl p-3.5">
             <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-2">Account</div>
             <select
               value={state.accountProfile.mode}
@@ -480,7 +480,7 @@ const CommandScreen = () => {
                 />
               </label>
             </div>
-            <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/40 p-3 space-y-1.5">
+            <div className="mt-3 glass-card p-3 space-y-1.5">
               {[
                 ["Risk / trade", `£${calculateRiskAmount(state.accountProfile).toFixed(2)}`, "#10b981"],
                 ["Max daily",   `£${(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(2)}`, "#f59e0b"],
@@ -496,7 +496,7 @@ const CommandScreen = () => {
           </section>
 
           {/* Manual Readiness Gates */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+          <section className="glass-card rounded-2xl p-3.5">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[8px] uppercase tracking-[0.25em] text-white/25">Human Gates</div>
               <ProvenanceBadge state="USER_INPUT" />
@@ -663,7 +663,7 @@ const CommandScreen = () => {
 
           {/* AUTHORIZE risk confirmation */}
           {decision.command === "AUTHORIZE" && risk.lots != null && (
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-4"
+            <div className="glass-card glass-card-green rounded-2xl p-4"
               style={{ boxShadow: "0 0 40px rgba(16,185,129,0.06)" }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[9px] uppercase tracking-[0.25em] text-emerald-400 font-black">Risk Confirmation</div>
@@ -687,7 +687,7 @@ const CommandScreen = () => {
           {/* EXA 4-LOCKS + Intelligence bars */}
           <div className="grid gap-3 lg:grid-cols-2">
             {/* 4-LOCKS */}
-            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <section className="glass-card rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">EXA 4-Locks</div>
@@ -741,7 +741,7 @@ const CommandScreen = () => {
             </section>
 
             {/* Factor bars */}
-            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <section className="glass-card rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">EXA Intelligence</div>
@@ -782,11 +782,11 @@ const CommandScreen = () => {
 
           {/* Reasons + Blockers */}
           <div className="grid gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl border border-emerald-500/10 bg-emerald-500/[0.02] p-4">
+            <section className="glass-card glass-card-green rounded-2xl p-4">
               <div className="text-[9px] uppercase tracking-[0.2em] text-emerald-400/70 mb-3">Top Reasons</div>
               <div className="space-y-1.5">
                 {(decision.confluence.reasons.length ? decision.confluence.reasons : ["No validated reasons yet."]).slice(0, 5).map((r, i) => (
-                  <div key={i} className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] px-3 py-2 text-[11px] text-white/60">{r}</div>
+                  <div key={i} className="glass-card glass-card-green px-3 py-2 text-[11px] text-white/60">{r}</div>
                 ))}
               </div>
             </section>
@@ -823,7 +823,7 @@ const CommandScreen = () => {
             })();
 
             return (
-              <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <section className="glass-card rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Step Gates</div>
@@ -932,7 +932,7 @@ const CommandScreen = () => {
           })()}
 
           {/* Trade Plan Inputs */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <section className="glass-card rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Trade Plan</div>
@@ -979,7 +979,7 @@ const CommandScreen = () => {
         <aside className="space-y-3">
 
           {/* EXA Operator Read */}
-          <section className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.03] p-4 relative overflow-hidden">
+          <section className="glass-card glass-card-purple rounded-2xl p-4 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, #a855f740, transparent)" }} />
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1019,7 +1019,7 @@ const CommandScreen = () => {
           </section>
 
           {/* NEXUS-C */}
-          <section className="rounded-2xl border border-emerald-500/12 bg-emerald-500/[0.015] overflow-hidden" style={{ height: 270 }}>
+          <section className="glass-card glass-card-green rounded-2xl overflow-hidden" style={{ height: 270 }}>
             <div className="px-4 pt-3 pb-2 border-b border-white/[0.04]">
               <div className="text-[9px] uppercase tracking-[0.2em] text-emerald-400/75">NEXUS-C · Command Analyst</div>
               <div className="text-[8px] text-white/18 mt-0.5">context-bound · WARROOM READ format</div>
@@ -1036,7 +1036,7 @@ const CommandScreen = () => {
           </section>
 
           {/* Session Intel */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <section className="glass-card rounded-2xl p-4">
             <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Session Intel</div>
             <div className="text-base font-black uppercase tracking-wide leading-tight" style={{ color: sessionAccent }}>
               {state.selectedSession}
@@ -1060,7 +1060,7 @@ const CommandScreen = () => {
           </section>
 
           {/* Gate Status (summary — full gates in center column) */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <section className="glass-card rounded-2xl p-4">
             <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Gate Status</div>
             <div className="space-y-2">
               {([
