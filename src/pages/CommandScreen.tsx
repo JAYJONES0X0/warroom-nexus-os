@@ -800,6 +800,137 @@ const CommandScreen = () => {
             </section>
           </div>
 
+          {/* ── STEP GATES — guided workflow ── */}
+          {(() => {
+            const steps = [
+              { id: "quote",       label: "Live Quote",         done: !!state.liveQuote && !state.liveQuote.stale, gate: false as const },
+              { id: "structure",   label: "SMC Structure",      done: !!state.structureContext,  gate: "structure" as const },
+              { id: "correlation", label: "Correlation",        done: !!state.correlationState,  gate: "correlation" as const },
+              { id: "tradeplan",   label: "Trade Plan",         done: !!(state.setup.entry && state.setup.stop && state.setup.tp1), gate: false as const },
+              { id: "confluence",  label: "Confluence Gateway", done: decision.confluence.score >= 85, gate: false as const },
+            ];
+            const currentIdx = steps.findIndex(s => !s.done);
+            const currentStep = currentIdx === -1 ? steps.length : currentIdx;
+            const nextAction = (() => {
+              if (currentStep >= steps.length) return "All gates passed. AUTHORIZE ready.";
+              const s = steps[currentStep];
+              if (s.id === "quote") return "Waiting for live price data from Twelve Data / WebSocket.";
+              if (s.id === "structure") return "Verify SMC structure on chart, then mark as ready.";
+              if (s.id === "correlation") return "Check correlated assets (DXY, NAS, yields), then mark as ready.";
+              if (s.id === "tradeplan") return "Enter entry price, stop loss, and take profit for auto-calculation.";
+              if (s.id === "confluence") return `Need confluence ≥ 85 (currently ${decision.confluence.score}). Wait for conditions.`;
+              return "";
+            })();
+
+            return (
+              <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Step Gates</div>
+                    <span className="text-[8px] text-white/20">
+                      Step {Math.min(currentStep + 1, steps.length)}/{steps.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full" style={{
+                      background: currentStep >= steps.length ? "#10b981" : currentStep < 2 ? "#f59e0b" : "#38bdf8",
+                    }} />
+                    <span className="text-[8px] font-mono text-white/30">
+                      {currentStep >= steps.length ? "ALL CLEAR" : `NEXT: ${steps[currentStep].label.toUpperCase()}`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step timeline */}
+                <div className="space-y-0">
+                  {steps.map((s, i) => {
+                    const isDone = s.done;
+                    const isCurrent = i === currentStep;
+                    const isLocked = i > currentStep;
+                    return (
+                      <div key={s.id} className="flex items-stretch gap-3 py-2.5 border-b border-white/[0.03] last:border-0">
+                        {/* Step number + line */}
+                        <div className="flex flex-col items-center gap-1 shrink-0" style={{ width: 20 }}>
+                          <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black transition-all"
+                            style={{
+                              background: isDone ? "rgba(16,185,129,0.15)" : isCurrent ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${isDone ? "rgba(16,185,129,0.4)" : isCurrent ? "rgba(59,130,246,0.4)" : "rgba(255,255,255,0.08)"}`,
+                              color: isDone ? "#10b981" : isCurrent ? "#38bdf8" : "rgba(255,255,255,0.2)",
+                            }}>
+                            {isDone ? "✓" : i + 1}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wide"
+                              style={{ color: isDone ? "#10b981" : isCurrent ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)" }}>
+                              {s.label}
+                            </span>
+                            {s.gate === "structure" && (
+                              <button onClick={() => setStructureReady(!state.structureContext)}
+                                className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-all shrink-0"
+                                style={state.structureContext ? {
+                                  color: "#10b981", borderColor: "rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.08)",
+                                } : {
+                                  color: "rgba(255,255,255,0.25)", borderColor: "rgba(255,255,255,0.08)", background: "transparent",
+                                }}>
+                                {state.structureContext ? "✓ READY" : "MARK READY"}
+                              </button>
+                            )}
+                            {s.gate === "correlation" && (
+                              <button onClick={() => setCorrelationReady(!state.correlationState)}
+                                className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded border transition-all shrink-0"
+                                style={state.correlationState ? {
+                                  color: "#10b981", borderColor: "rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.08)",
+                                } : {
+                                  color: "rgba(255,255,255,0.25)", borderColor: "rgba(255,255,255,0.08)", background: "transparent",
+                                }}>
+                                {state.correlationState ? "✓ READY" : "MARK READY"}
+                              </button>
+                            )}
+                            {s.id === "tradeplan" && (
+                              <span className="text-[8px] font-mono" style={{
+                                color: s.done ? "#10b981" : "rgba(255,255,255,0.2)",
+                              }}>
+                                {s.done ? `${state.setup.entry} / ${state.setup.stop} / ${state.setup.tp1}` : "— / — / —"}
+                              </span>
+                            )}
+                            {s.id === "quote" && (
+                              <span className="text-[8px] font-mono" style={{
+                                color: s.done ? "#10b981" : "rgba(255,255,255,0.2)",
+                              }}>
+                                {s.done ? `${quoteAge ?? 0}s · ${state.liveQuote?.source ?? "?"}` : "MISSING"}
+                              </span>
+                            )}
+                            {s.id === "confluence" && (
+                              <span className="text-[8px] font-black tabular-nums" style={{
+                                color: s.done ? "#10b981" : "#f59e0b",
+                              }}>
+                                {decision.confluence.score}/100
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Next action directive */}
+                <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center gap-2">
+                  <span className="text-[7px] uppercase tracking-[0.2em] text-white/20">Next</span>
+                  <span className="text-[10px]" style={{
+                    color: currentStep >= steps.length ? "#10b981" : "rgba(255,255,255,0.5)",
+                  }}>
+                    {nextAction}
+                  </span>
+                </div>
+              </section>
+            );
+          })()}
+
           {/* Trade Plan Inputs */}
           <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
             <div className="flex items-center justify-between mb-3">
@@ -928,35 +1059,27 @@ const CommandScreen = () => {
             </div>
           </section>
 
-          {/* Path to Authorize */}
+          {/* Gate Status (summary — full gates in center column) */}
           <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Path to Authorize</div>
-            <div className="space-y-2.5">
-              {[
-                { label: "Live quote",              done: !!state.liveQuote && !state.liveQuote.stale },
-                { label: "SMC structure verified",  done: !!state.structureContext },
-                { label: "Correlation verified",    done: !!state.correlationState },
-                { label: "Confluence ≥ 85%",        done: decision.confluence.score >= 85 },
-                {
-                  label: (() => {
-                    const inKZ = state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM");
-                    if (inKZ) return "In killzone";
-                    if (nextKZ) return `${nextKZ.label} in ${formatCountdown(nextKZ.minutesAway)}`;
-                    return "In killzone / NY overlap";
-                  })(),
-                  done: state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM"),
-                },
-                { label: "Entry / stop / TP entered", done: !!(state.setup.entry && state.setup.stop && state.setup.tp1) },
-              ].map(({ label, done }, i) => (
-                <div key={i} className="flex items-center gap-2.5">
-                  <div className="h-4 w-4 shrink-0 rounded-full border flex items-center justify-center"
+            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Gate Status</div>
+            <div className="space-y-2">
+              {([
+                { label: "Quote",       done: !!state.liveQuote && !state.liveQuote.stale },
+                { label: "Structure",   done: !!state.structureContext },
+                { label: "Correlation", done: !!state.correlationState },
+                { label: "Trade Plan",  done: !!(state.setup.entry && state.setup.stop && state.setup.tp1) },
+                { label: "Confluence",  done: decision.confluence.score >= 85 },
+                { label: "Killzone",    done: state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM") },
+              ] as const).map(({ label, done }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className="h-3 w-3 shrink-0 rounded-full border flex items-center justify-center"
                     style={{
                       borderColor: done ? "#10b981" : "rgba(255,255,255,0.1)",
                       background: done ? "rgba(16,185,129,0.12)" : "transparent",
                     }}>
-                    {done && <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                    {done && <div className="h-1 w-1 rounded-full bg-emerald-400" />}
                   </div>
-                  <span className="text-[10px]" style={{ color: done ? "#10b981" : "rgba(255,255,255,0.32)" }}>{label}</span>
+                  <span className="text-[9px]" style={{ color: done ? "#10b981" : "rgba(255,255,255,0.32)" }}>{label}</span>
                 </div>
               ))}
             </div>
