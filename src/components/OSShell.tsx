@@ -1,15 +1,22 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useWarroom } from "@/context/WarroomStateContext";
 
-const MODULES = [
+const CORE_MODULES = [
   { key: "command",    abbr: "CMD", route: "/",             color: "#ef4444", status: "LIVE"     },
   { key: "markets",    abbr: "MKT", route: "/markets",      color: "#38bdf8", status: "BUILDING" },
   { key: "intel",      abbr: "INT", route: "/intelligence", color: "#06b6d4", status: "FROZEN"   },
-  { key: "polymarket", abbr: "PLY", route: "/polymarket",   color: "#a855f7", status: "LIVE"     },
+  { key: "polymarket", abbr: "PLY", route: "/polymarket",   color: "#a855f7", status: "BUILDING" },
   { key: "journal",    abbr: "JRN", route: "/journal",      color: "#10b981", status: "FROZEN"   },
-  { key: "risk",       abbr: "RSK", route: null as string | null, color: "#f97316", status: "FROZEN" },
+  { key: "risk",       abbr: "RSK", route: "/risk",         color: "#f97316", status: "FROZEN"   },
   { key: "settings",   abbr: "SET", route: "/settings",     color: "#6b7280", status: "LIVE"     },
+] as const;
+
+const EXTRA_MODULES = [
+  { key: "execution",  abbr: "EXE", route: "/execution",    color: "#D48A3C", status: "BUILDING" },
+  { key: "analytics",  abbr: "ANL", route: "/analytics",    color: "#8b5cf6", status: "BUILDING" },
+  { key: "reports",    abbr: "RPT", route: "/reports",      color: "#ec4899", status: "LIVE"     },
+  { key: "alerts",     abbr: "ALR", route: "/alerts",       color: "#f43f5e", status: "BUILDING" },
 ] as const;
 
 const VERDICT_COLORS: Record<string, string> = {
@@ -21,39 +28,56 @@ export function OSShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { state } = useWarroom();
+  const [showMore, setShowMore] = useState(false);
+  const [railHover, setRailHover] = useState(false);
 
   const path = location.pathname;
-  const activeModule = MODULES.find(m =>
+  const allModules = [...CORE_MODULES, ...EXTRA_MODULES];
+  const activeModule = allModules.find(m =>
     m.route ? (path === m.route || (m.route !== "/" && path.startsWith(m.route as string))) : false,
   );
   const commandColor = VERDICT_COLORS[state.setup.command] ?? "#a78bfa";
 
+  // Human-readable module labels for expanded rail
+  const MODULE_LABELS: Record<string, string> = {
+    command: "COMMAND", markets: "MARKETS", intel: "INTEL",
+    polymarket: "POLYMARKET", journal: "JOURNAL", risk: "RISK", settings: "SETTINGS",
+    execution: "EXECUTION", analytics: "ANALYTICS", reports: "REPORTS", alerts: "ALERTS",
+  };
+
   return (
     <>
-      {/* ── LEFT RAIL ───────────────────────────────────────────────────── */}
-      <div style={{
-        position: "fixed", left: 0, top: 0, bottom: 0, width: 52, zIndex: 950,
-        background: "rgba(0,1,6,0.96)", borderRight: "1px solid rgba(255,255,255,0.06)",
-        backdropFilter: "blur(16px)", display: "flex", flexDirection: "column",
-        fontFamily: "monospace",
-      }}>
+      {/* ── LEFT RAIL (hover to expand) ────────────────────────────────── */}
+      <div
+        onMouseEnter={() => setRailHover(true)}
+        onMouseLeave={() => setRailHover(false)}
+        style={{
+          position: "fixed", left: 0, top: 0, bottom: 0,
+          width: railHover ? 140 : 52, zIndex: 950,
+          background: "rgba(0,1,6,0.96)", borderRight: "1px solid rgba(255,255,255,0.06)",
+          backdropFilter: "blur(16px)", display: "flex", flexDirection: "column",
+          fontFamily: "monospace", transition: "width 0.15s ease",
+          overflow: "hidden",
+        }}>
         {/* Logo → Cosmos */}
         <button
           onClick={() => navigate("/cosmos")}
           title="Cosmos — module navigator"
           style={{
-            height: 44, display: "flex", alignItems: "center", justifyContent: "center",
+            height: 44, display: "flex", alignItems: "center", gap: 8,
+            padding: railHover ? "0 12px" : "0", justifyContent: railHover ? "flex-start" : "center",
             borderTop: 0, borderLeft: 0, borderRight: 0,
             borderBottom: "1px solid rgba(255,255,255,0.05)",
-            background: "transparent", cursor: "pointer", padding: 0,
+            background: "transparent", cursor: "pointer",
           }}
         >
           <span style={{ fontSize: 9, fontWeight: 900, color: "#ef4444", letterSpacing: "0.1em" }}>WN</span>
+          {railHover && <span style={{ fontSize: 8, fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>COSMOS</span>}
         </button>
 
-        {/* Module icons */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 0", gap: 3 }}>
-          {MODULES.map(mod => {
+        {/* Module icons with labels on hover */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "10px 0", gap: 2 }}>
+          {[...CORE_MODULES, ...(showMore ? EXTRA_MODULES : [])].map(mod => {
             const isActive = mod.route
               ? (path === mod.route || (mod.route !== "/" && path.startsWith(mod.route as string)))
               : false;
@@ -63,27 +87,74 @@ export function OSShell({ children }: { children: ReactNode }) {
               <button
                 key={mod.key}
                 onClick={() => !isDisabled && mod.route && navigate(mod.route as string)}
-                title={mod.key.toUpperCase() + (mod.status !== "LIVE" ? ` · ${mod.status}` : "")}
+                title={`${mod.key.toUpperCase()} — ${mod.status}`}
                 style={{
-                  width: 38, height: 36, border: "none",
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
-                  borderRadius: 7, cursor: isDisabled ? "not-allowed" : "pointer",
+                  height: 32, border: "none", cursor: isDisabled ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: railHover ? "0 12px" : "0 7px",
+                  justifyContent: railHover ? "flex-start" : "center",
+                  borderRadius: 0, fontFamily: "monospace",
                   background: isActive ? `${mod.color}1a` : "transparent",
-                  outline: isActive ? `1px solid ${mod.color}50` : "none",
+                  borderLeft: isActive ? `2px solid ${mod.color}` : "2px solid transparent",
                   opacity: mod.status === "FROZEN" ? 0.28 : 1,
-                  transition: "all 0.12s", fontFamily: "monospace",
+                  transition: "all 0.12s",
                 }}
               >
                 <span style={{
-                  fontSize: 7.5, fontWeight: 900, letterSpacing: "0.05em",
+                  fontSize: 9, fontWeight: 900, letterSpacing: "0.1em",
                   color: isActive ? mod.color : "rgba(255,255,255,0.35)",
                 }}>
                   {mod.abbr}
                 </span>
-                <div style={{ width: 4, height: 4, borderRadius: "50%", background: dotColor }} />
+                {railHover && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 800, letterSpacing: "0.1em",
+                    color: isActive ? mod.color : "rgba(255,255,255,0.3)",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
+                    {MODULE_LABELS[mod.key] ?? mod.key.toUpperCase()}
+                  </span>
+                )}
+                <div style={{ width: 4, height: 4, borderRadius: "50%", background: dotColor, marginLeft: "auto" }} />
               </button>
             );
           })}
+
+          {/* MORE toggle */}
+          {!showMore && (
+            <button
+              onClick={() => setShowMore(true)}
+              title="More modules"
+              style={{
+                height: 24, border: "none", cursor: "pointer", fontFamily: "monospace",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: railHover ? "0 12px" : "0",
+                background: "transparent",
+                fontSize: 7, fontWeight: 900, letterSpacing: "0.1em",
+                color: "rgba(255,255,255,0.25)", transition: "all 0.12s",
+              }}
+            >
+              <span>+</span>
+              {railHover && <span>MORE</span>}
+            </button>
+          )}
+          {showMore && (
+            <button
+              onClick={() => setShowMore(false)}
+              title="Collapse"
+              style={{
+                height: 24, border: "none", cursor: "pointer", fontFamily: "monospace",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: railHover ? "0 12px" : "0",
+                background: "transparent",
+                fontSize: 7, fontWeight: 900, letterSpacing: "0.1em",
+                color: "rgba(255,255,255,0.25)", transition: "all 0.12s",
+              }}
+            >
+              <span>−</span>
+              {railHover && <span>LESS</span>}
+            </button>
+          )}
         </div>
 
         {/* Cosmos icon at bottom */}
@@ -91,13 +162,15 @@ export function OSShell({ children }: { children: ReactNode }) {
           onClick={() => navigate("/cosmos")}
           title="Cosmos navigator"
           style={{
-            height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+            height: 36, display: "flex", alignItems: "center", gap: 8,
+            padding: railHover ? "0 12px" : "0", justifyContent: railHover ? "flex-start" : "center",
             borderBottom: 0, borderLeft: 0, borderRight: 0,
             borderTop: "1px solid rgba(255,255,255,0.05)",
             background: "transparent", cursor: "pointer",
           }}
         >
           <span style={{ fontSize: 14, color: "rgba(255,255,255,0.18)", lineHeight: 1 }}>⬡</span>
+          {railHover && <span style={{ fontSize: 8, fontWeight: 800, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em" }}>NAVIGATOR</span>}
         </button>
       </div>
 

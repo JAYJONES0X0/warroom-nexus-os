@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/hooks/usePrices";
+import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
 import { useWarroom } from "@/context/WarroomStateContext";
 import { ScreenAgent } from "@/components/ScreenAgent";
@@ -30,7 +31,7 @@ const statusStyle: Record<string, { label: string; fg: string; bg: string; borde
   DENY:         { label: "DENY",         fg: "#ef4444", bg: "rgba(239,68,68,0.12)",   border: "rgba(239,68,68,0.45)" },
   MONITOR:      { label: "MONITOR",      fg: "#38bdf8", bg: "rgba(56,189,248,0.12)",  border: "rgba(56,189,248,0.45)" },
   INVALIDATED:  { label: "INVALIDATED",  fg: "#f43f5e", bg: "rgba(244,63,94,0.12)",   border: "rgba(244,63,94,0.45)" },
-  MISSING_DATA: { label: "MISSING DATA", fg: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.45)" },
+  MISSING_DATA: { label: "HALT — DATA INCOMPLETE", fg: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.45)" },
 };
 
 // ─── Provenance system — every panel tells what kind of truth it shows ────────
@@ -146,10 +147,11 @@ const CommandScreen = () => {
   } = useWarroom();
 
   const { prices, fetchedAt, loading, error, source } = usePrices();
+  const tick = usePriceTick(state.selectedAsset);
   const exa = useEXAScores(state.selectedAsset);
   const scan = useEXAScan(ALL_ASSETS);
 
-  // Wire live price feed → global quote state
+  // Wire live price feed → global quote state (5s polling fallback)
   useEffect(() => {
     const price = prices[state.selectedAsset];
     if (!price) { updateQuote(null); return; }
@@ -162,6 +164,18 @@ const CommandScreen = () => {
       stale: Date.now() - fetched > 30_000 || source === "error",
     });
   }, [prices, fetchedAt, source, state.selectedAsset, updateQuote]);
+
+  // Wire WebSocket tick → overrides polled quote with real-time price
+  useEffect(() => {
+    if (!tick?.price) return;
+    updateQuote({
+      asset: state.selectedAsset,
+      price: tick.price,
+      source: "twelvedata-ws",
+      timestamp: tick.timestamp * 1000,
+      stale: false,
+    });
+  }, [tick, state.selectedAsset, updateQuote]);
 
   // Wire EXA scores → confluence + setup state
   useEffect(() => {
@@ -235,7 +249,7 @@ const CommandScreen = () => {
         return "No trade. Conditions not met. Wait for next structure.";
       case "MISSING_DATA": {
         const m = decision.missingData.slice(0, 2).join(", ");
-        return m ? `Complete data: ${m}.` : "Enter asset data to evaluate.";
+        return m ? `HALT — Missing: ${m}.` : "HALT — Enter asset data to evaluate.";
       }
       case "MONITOR":
         return "Watching conditions. Re-evaluate at next session.";
@@ -565,7 +579,20 @@ const CommandScreen = () => {
 
                 {/* Live price */}
                 <div className="text-right">
-                  <div className="text-[8px] uppercase tracking-[0.25em] text-white/30 mb-1">{asset.label}</div>
+                  <div className="text-[8px] uppercase tracking-[0.25em] text-white/30 mb-1 flex items-center gap-2 justify-end">
+                    {asset.label}
+                    {tick?.connected ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400/60">WS</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                        <span className="text-white/20">POLL</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="text-4xl font-black tabular-nums leading-none">
                     {state.liveQuote ? formatPrice(state.selectedAsset, state.liveQuote.price) : "—"}
                   </div>

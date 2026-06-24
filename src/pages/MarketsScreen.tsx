@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores } from "@/hooks/useEXAScores";
@@ -6,6 +6,8 @@ import { useKeyLevels } from "@/hooks/useKeyLevels";
 import { ASSET_BRAIN } from "@/lib/warroomBrain";
 import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroCalendar } from "@/components/MacroCalendar";
+import { MarketsChart } from "@/components/MarketsChart";
+import { DrawingTools } from "@/components/DrawingTools";
 
 // ─── constants ───────────────────────────────────────────────────────────────
 const ALL_ASSETS = [
@@ -22,15 +24,6 @@ const ALL_ASSETS = [
   { key: "DXY",    label: "DXY",     cat: "FX",     dec: 3 },
 ];
 
-const TF_MAP: Record<string, string> = {
-  "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1D": "D", "1W": "W",
-};
-const TV_SYM: Record<string, string> = {
-  EURUSD: "FX:EURUSD", GBPUSD: "FX:GBPUSD", USDJPY: "FX:USDJPY", GBPJPY: "FX:GBPJPY",
-  AUDUSD: "FX:AUDUSD", NZDUSD: "FX:NZDUSD", XAUUSD: "TVC:GOLD",
-  BTCUSD: "BITSTAMP:BTCUSD", NAS100: "CAPITALCOM:US100", SPX: "SP:SPX", DXY: "TVC:DXY",
-};
-
 const MARKETS_AGENT_CONTEXT = `You are NEXUS-M, the Markets Agent for EXA WARROOM.
 Monitor live prices across all 11 assets. Think like a senior institutional trader.
 Use EXA 4-LOCKS: Structure, Liquidity, Session Timing, Confirmation.
@@ -46,44 +39,25 @@ function getSession() {
   return { label: "DEAD ZONE", color: "#ffffff30" };
 }
 
-// ─── TradingView ─────────────────────────────────────────────────────────────
-const TradingViewChart = ({ symbol, tf }: { symbol: string; tf: string }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ref.current) return;
-    ref.current.innerHTML = "";
-    const s = document.createElement("script");
-    s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    s.async = true;
-    s.innerHTML = JSON.stringify({
-      autosize: true, symbol: TV_SYM[symbol] || "FX:EURUSD",
-      interval: TF_MAP[tf] || "60", timezone: "Etc/UTC",
-      theme: "dark", style: "1", locale: "en",
-      gridColor: "rgba(255,255,255,0.03)", backgroundColor: "rgba(0,0,0,0)",
-      hide_top_toolbar: false, hide_legend: false, save_image: false, hide_volume: false,
-      support_host: "https://www.tradingview.com",
-    });
-    ref.current.appendChild(s);
-  }, [symbol, tf]);
-  return (
-    <div ref={ref} className="tradingview-widget-container w-full h-full">
-      <div className="tradingview-widget-container__widget w-full h-full" />
-    </div>
-  );
-};
-
 // ─── Order Book ───────────────────────────────────────────────────────────────
 const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
   const step = dec >= 4 ? 0.0001 : dec === 3 ? 0.001 : dec === 2 ? 0.1 : 1;
+  // Deterministic seed from mid price — no Math.random(), no flickering on re-render
+  // Depth is SIMULATED until broker connection (MetaTrader/cTrader) is wired
+  const seed = Math.round(mid * 100) % 997;
+  const stable = (i: number, salt: number) => {
+    const n = ((seed * (i + 1) * 17 + salt * 31) % 100 + 100) % 100;
+    return 0.2 + (n / 100) * 2.8;
+  };
   const asks = Array.from({ length: 5 }, (_, i) => ({
     price: (mid + step * (i + 1)).toFixed(dec),
-    size: (Math.random() * 3 + 0.2).toFixed(2),
-    pct: Math.random() * 0.7 + 0.05,
+    size: stable(i, 1).toFixed(2),
+    pct: 0.05 + (stable(i, 7) / 3) * 0.6,
   }));
   const bids = Array.from({ length: 5 }, (_, i) => ({
     price: (mid - step * i).toFixed(dec),
-    size: (Math.random() * 3 + 0.2).toFixed(2),
-    pct: Math.random() * 0.7 + 0.05,
+    size: stable(i, 3).toFixed(2),
+    pct: 0.05 + (stable(i, 11) / 3) * 0.6,
   }));
   return (
     <div className="text-[10px] font-mono">
@@ -109,6 +83,9 @@ const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
           <span className="relative text-right text-white/30">{(parseFloat(b.size) * 1.4).toFixed(1)}</span>
         </div>
       ))}
+      <div className="mt-1.5 px-1 text-[7.5px] text-white/15 font-mono tracking-wide">
+        DEPTH SIMULATED · broker connection required
+      </div>
     </div>
   );
 };
@@ -120,6 +97,7 @@ const MarketsScreen = () => {
   const [tf, setTf]              = useState("1h");
   const [alertSent, setAlertSent] = useState(false);
   const [showMacro, setShowMacro] = useState(false);
+  const [drawingTool, setDrawingTool] = useState<string | null>(null);
   const [clock, setClock]        = useState(new Date());
 
   const tick = usePriceTick(selected);   // real-time WS tick (selected pair)
@@ -153,6 +131,10 @@ const MarketsScreen = () => {
           style={{ borderColor: "rgba(255,68,68,0.12)", background: "rgba(0,0,0,0.3)" }}>
           <div className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ background: "#ff4444", boxShadow: "0 0 8px #ff4444" }} />
           <span className="text-[11px] font-black tracking-[0.2em] text-red-400 mr-4">GLOBAL MARKETS</span>
+          <span className="text-[6px] font-mono tracking-[0.18em] px-1 py-0.5 rounded border mr-4"
+            style={{ color: "#f59e0b", borderColor: "rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)" }}>
+            VIEWER LIVE · TERMINAL BUILDING
+          </span>
 
           {/* Selected pair live display */}
           <div className="flex items-center gap-3 pr-4 border-r border-white/[0.06] mr-3">
@@ -302,9 +284,12 @@ const MarketsScreen = () => {
               </div>
             </div>
 
-            {/* Chart */}
-            <div className="flex-1 min-h-0">
-              <TradingViewChart symbol={selected} tf={tf} />
+            {/* Chart + Drawing Tools */}
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute inset-0" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+                <MarketsChart symbol={selected} timeframe={tf} selectedTool={drawingTool} />
+              </div>
+              <DrawingTools symbol={selected} onToolChange={setDrawingTool} />
             </div>
 
             {/* Bottom stats */}
@@ -341,7 +326,13 @@ const MarketsScreen = () => {
             {/* Order Book */}
             <div className="shrink-0 border-b border-white/[0.05]">
               <div className="px-3 py-2 border-b border-white/[0.04] flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">Order Book</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">Order Book</span>
+                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                    style={{ color: "#a855f7", borderColor: "rgba(168,85,247,0.35)", background: "rgba(168,85,247,0.1)" }}>
+                    SIMULATED
+                  </span>
+                </div>
                 <span className="text-[9px] text-white/15">{asset.label}</span>
               </div>
               <div className="px-2 py-2">
@@ -352,7 +343,13 @@ const MarketsScreen = () => {
             {/* EXA Signal Intelligence — brain only, no execution */}
             <div className="shrink-0 px-3 py-3">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">EXA Signal</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">EXA Signal</div>
+                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                    style={{ color: "#8b5cf6", borderColor: "rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }}>
+                    MODEL
+                  </span>
+                </div>
                 {(() => {
                   const vc = exa.verdict === "AUTHORIZED" ? "#10b981" : exa.verdict === "DELAY" ? "#f59e0b" : "#ef4444";
                   return (
@@ -482,12 +479,34 @@ const MarketsScreen = () => {
                 </div>
               )}
 
+              {/* Broker Connection Status */}
+              <div className="shrink-0 px-3 py-2 border-t border-white/[0.05]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">Broker Connection</span>
+                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                    style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.1)" }}>
+                    NOT CONNECTED
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500/50" style={{ boxShadow: '0 0 4px rgba(239,68,68,0.3)' }} />
+                    <span className="text-[9px] text-white/40 font-mono">MT4/MT5/cTrader</span>
+                  </div>
+                  <span className="text-[9px] text-white/20 font-mono px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.06]">NOT CONNECTED</span>
+                </div>
+                <div className="text-[8px] text-white/15 font-mono mt-1">
+                  Chart + signals are live. Execute on your broker platform.
+                </div>
+              </div>
+
               <button
                 onClick={async () => {
                   if (alertSent) return;
                   try {
                     await fetch("/api/alert", {
-                      method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         signal: (() => {
