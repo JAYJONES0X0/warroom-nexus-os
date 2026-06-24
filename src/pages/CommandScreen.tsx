@@ -13,6 +13,8 @@ import {
   formatCountdown,
   getAssetMeta,
   getNextKillzone,
+  isKillzone,
+  type JournalDraft,
   type WarroomTimeframe,
 } from "@/lib/warroomCommand";
 
@@ -100,9 +102,9 @@ const shortAssetKey = (key: string) => {
 
 function Field({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-      <div className="text-[9px] uppercase tracking-[0.18em] text-white/30">{label}</div>
-      <div className="mt-1 text-sm font-black tabular-nums" style={{ color: accent ?? "rgba(255,255,255,0.9)" }}>{value}</div>
+    <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3">
+      <div className="text-[8px] uppercase tracking-[0.2em] text-white/25">{label}</div>
+      <div className="mt-1 text-sm font-black tabular-nums leading-tight" style={{ color: accent ?? "rgba(255,255,255,0.88)" }}>{value}</div>
     </div>
   );
 }
@@ -111,18 +113,18 @@ function FactorBar({ label, value, note }: { label: string; value: number; note:
   const color = value >= 70 ? "#10b981" : value >= 45 ? "#f59e0b" : "#ef4444";
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="shrink-0 text-[10px] uppercase tracking-wider text-white/40">{label}</span>
-        <span className="truncate text-right text-[9px] text-white/25">{note}</span>
+      <div className="flex items-baseline justify-between gap-2 mb-1.5">
+        <span className="shrink-0 text-[9px] uppercase tracking-wider text-white/35">{label}</span>
+        <span className="truncate text-right text-[8px] text-white/22">{note}</span>
       </div>
-      <div className="mt-1 flex items-center gap-2">
-        <div className="h-1 flex-1 rounded-full bg-white/[0.06]">
+      <div className="flex items-center gap-2">
+        <div className="h-[3px] flex-1 rounded-full bg-white/[0.06]">
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(100, value)}%`, background: color }}
+            style={{ width: `${Math.min(100, value)}%`, background: color, boxShadow: `0 0 6px ${color}80` }}
           />
         </div>
-        <span className="w-7 text-right text-[10px] font-bold tabular-nums" style={{ color }}>{value}</span>
+        <span className="w-7 text-right text-[11px] font-black tabular-nums" style={{ color }}>{value}</span>
       </div>
     </div>
   );
@@ -140,6 +142,7 @@ const CommandScreen = () => {
     updateSetup,
     setStructureReady,
     setCorrelationReady,
+    updateJournalDraft,
   } = useWarroom();
 
   const { prices, fetchedAt, loading, error, source } = usePrices();
@@ -243,6 +246,40 @@ const CommandScreen = () => {
     }
   })();
 
+  // Live quote age counter — turns amber >15s, red >60s
+  const [quoteAge, setQuoteAge] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setQuoteAge(
+      !state.liveQuote ? null : Math.floor((Date.now() - state.liveQuote.timestamp) / 1000)
+    );
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [state.liveQuote?.timestamp]);
+
+  // Auto-populate journal draft when AUTHORIZE conditions are fully met
+  useEffect(() => {
+    if (decision.command !== "AUTHORIZE") return;
+    if (!state.setup.entry || !state.setup.stop || !state.setup.tp1) return;
+    if (risk.lots == null) return;
+    if (state.journalDraft) return; // don't overwrite user-edited draft
+    updateJournalDraft({
+      asset: state.selectedAsset,
+      direction: decision.direction,
+      entry: state.setup.entry,
+      stop: state.setup.stop,
+      tp1: state.setup.tp1,
+      tp2: state.setup.tp2,
+      rr: autoRR ? `${autoRR}:1` : undefined,
+      lots: risk.lots,
+      riskAmount: risk.riskAmount,
+      session: state.selectedSession,
+      timeframe: state.selectedTimeframe,
+      timestamp: Date.now(),
+      notes: "",
+    } as JournalDraft);
+  }, [decision.command, state.setup.entry, state.setup.stop, state.setup.tp1, risk.lots]);
+
   // Session countdown — updates every 60s
   const [nextKZ, setNextKZ] = useState(() => getNextKillzone());
   useEffect(() => {
@@ -309,23 +346,41 @@ const CommandScreen = () => {
     `Missing data: ${decision.missingData.length ? decision.missingData.join(" | ") : "None"}`,
   ].join("\n");
 
+  const journalDraftText = state.journalDraft ? [
+    "WARROOM JOURNAL ENTRY",
+    `Date: ${new Date(state.journalDraft.timestamp).toISOString().slice(0, 16).replace("T", " ")}`,
+    `Asset: ${getAssetMeta(state.journalDraft.asset).label}`,
+    `Direction: ${state.journalDraft.direction}`,
+    `Entry: ${formatPrice(state.journalDraft.asset, state.journalDraft.entry)}`,
+    `Stop: ${formatPrice(state.journalDraft.asset, state.journalDraft.stop)}`,
+    `TP1: ${formatPrice(state.journalDraft.asset, state.journalDraft.tp1)}`,
+    ...(state.journalDraft.rr ? [`R:R: ${state.journalDraft.rr}`] : []),
+    `Lots: ${state.journalDraft.lots.toFixed(2)}`,
+    `Risk: £${state.journalDraft.riskAmount.toFixed(2)}`,
+    `Session: ${state.journalDraft.session}`,
+    `Timeframe: ${state.journalDraft.timeframe}`,
+    ...(state.journalDraft.notes ? [`Notes: ${state.journalDraft.notes}`] : []),
+  ].join("\n") : "";
+
   return (
     <div className="min-h-screen bg-[#020508] text-white" style={{ fontFamily: "monospace" }}>
-      <main className="grid gap-4 p-4 xl:grid-cols-[280px_1fr_360px]">
-        {/* ── LEFT COLUMN ── */}
-        <aside className="space-y-4">
-          {/* Asset + Timeframe */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Selected Asset</div>
+      <main className="grid gap-3 p-3 xl:grid-cols-[268px_1fr_348px]">
+
+        {/* ── LEFT COLUMN ────────────────────────────────────────── */}
+        <aside className="space-y-3">
+
+          {/* Asset selector + constellation */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-2">Asset</div>
             <select
               value={state.selectedAsset}
               onChange={(e) => setAsset(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
             >
               {WARROOM_ASSETS.map((a) => <option key={a.key} value={a.key}>{a.label} · {a.category}</option>)}
             </select>
 
-            {/* Asset constellation — visual EXA state across all 8 pairs */}
+            {/* Asset constellation */}
             <div className="mt-3 grid grid-cols-4 gap-1.5">
               {WARROOM_ASSETS.map((a) => {
                 const row = scan.find((r) => r.pair === a.key);
@@ -335,14 +390,15 @@ const CommandScreen = () => {
                   <button
                     key={a.key}
                     onClick={() => setAsset(a.key)}
-                    className="flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-150"
+                    className="flex flex-col items-center gap-0.5 rounded-xl p-2 transition-all duration-150"
                     style={{
-                      background: isSelected ? `${dotColor}18` : "transparent",
-                      border: `1px solid ${isSelected ? `${dotColor}45` : "rgba(255,255,255,0.06)"}`,
+                      background: isSelected ? `${dotColor}15` : "rgba(255,255,255,0.02)",
+                      border: `1px solid ${isSelected ? `${dotColor}50` : "rgba(255,255,255,0.05)"}`,
+                      boxShadow: isSelected ? `0 0 12px ${dotColor}18` : "none",
                     }}
                   >
-                    <div className="h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
-                    <span className="text-[7.5px] font-black tabular-nums" style={{ color: isSelected ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)" }}>
+                    <div className="h-2 w-2 rounded-full" style={{ background: dotColor, boxShadow: isSelected ? `0 0 6px ${dotColor}` : "none" }} />
+                    <span className="text-[8px] font-black tabular-nums mt-0.5" style={{ color: isSelected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)" }}>
                       {shortAssetKey(a.key)}
                     </span>
                   </button>
@@ -350,263 +406,345 @@ const CommandScreen = () => {
               })}
             </div>
 
-            <div className="mt-3 text-[10px] uppercase tracking-[0.2em] text-white/30">Timeframe</div>
+            <div className="mt-3 text-[8px] uppercase tracking-[0.25em] text-white/25 mb-2">Timeframe</div>
             <select
               value={state.selectedTimeframe}
               onChange={(e) => setTimeframe(e.target.value as WarroomTimeframe)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
             >
               {WARROOM_TIMEFRAMES.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
             </select>
           </section>
 
           {/* Account Model */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Account Model</div>
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-2">Account</div>
             <select
               value={state.accountProfile.mode}
               onChange={(e) => updateAccount({ mode: e.target.value as any })}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs font-black text-white outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-xs font-black text-white outline-none"
             >
               {["Demo", "Personal", "Prop Firm", "Institutional", "Custom"].map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
-            <label className="mt-3 block text-[9px] uppercase tracking-[0.16em] text-white/30">Balance</label>
-            <input
-              type="number"
-              value={state.accountProfile.balance}
-              onChange={(e) => updateAccount({ balance: Number(e.target.value) || 0 })}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
-            />
-            <label className="mt-3 block text-[9px] uppercase tracking-[0.16em] text-white/30">Risk %</label>
-            <input
-              type="number"
-              step="0.1"
-              value={state.accountProfile.riskPct}
-              onChange={(e) => updateAccount({ riskPct: Number(e.target.value) || 0 })}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
-            />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="block">
-                <span className="text-[9px] uppercase tracking-[0.16em] text-white/30">Max Daily Loss %</span>
+                <span className="text-[8px] uppercase tracking-[0.2em] text-white/25">Balance</span>
+                <input
+                  type="number"
+                  value={state.accountProfile.balance}
+                  onChange={(e) => updateAccount({ balance: Number(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[8px] uppercase tracking-[0.2em] text-white/25">Risk %</span>
+                <input
+                  type="number" step="0.1"
+                  value={state.accountProfile.riskPct}
+                  onChange={(e) => updateAccount({ riskPct: Number(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[8px] uppercase tracking-[0.2em] text-white/25">Max Daily %</span>
                 <input
                   type="number" step="0.5" min="0" max="10"
                   value={state.accountProfile.maxDailyLossPct}
                   onChange={(e) => updateAccount({ maxDailyLossPct: Number(e.target.value) || 0 })}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
                 />
               </label>
               <label className="block">
-                <span className="text-[9px] uppercase tracking-[0.16em] text-white/30">Max Weekly %</span>
+                <span className="text-[8px] uppercase tracking-[0.2em] text-white/25">Max Weekly %</span>
                 <input
                   type="number" step="0.5" min="0" max="20"
                   value={state.accountProfile.maxWeeklyLossPct}
                   onChange={(e) => updateAccount({ maxWeeklyLossPct: Number(e.target.value) || 0 })}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm font-black text-white outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm font-black text-white outline-none"
                 />
               </label>
             </div>
-            <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/30 p-3 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-white/35">Risk per trade</span>
-                <span className="text-emerald-400 font-black">£{calculateRiskAmount(state.accountProfile).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/35">Max daily loss</span>
-                <span className="text-amber-400 font-black">£{(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/35">Max weekly loss</span>
-                <span className="text-red-400/80 font-black">£{(state.accountProfile.balance * state.accountProfile.maxWeeklyLossPct / 100).toFixed(2)}</span>
-              </div>
-              <div className="mt-1 text-[9px] text-white/25">{risk.note}</div>
+            <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/40 p-3 space-y-1.5">
+              {[
+                ["Risk / trade", `£${calculateRiskAmount(state.accountProfile).toFixed(2)}`, "#10b981"],
+                ["Max daily",   `£${(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(2)}`, "#f59e0b"],
+                ["Max weekly",  `£${(state.accountProfile.balance * state.accountProfile.maxWeeklyLossPct / 100).toFixed(2)}`, "#ef4444"],
+              ].map(([l, v, c]) => (
+                <div key={l} className="flex justify-between items-baseline text-[10px]">
+                  <span className="text-white/30">{l}</span>
+                  <span className="font-black" style={{ color: c }}>{v}</span>
+                </div>
+              ))}
+              <div className="text-[8px] text-white/20 pt-1">{risk.note}</div>
             </div>
           </section>
 
-          {/* Manual Readiness Gates — toggle with visual state */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="flex items-center justify-between mb-0.5">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Manual Readiness Gates</div>
+          {/* Manual Readiness Gates */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[8px] uppercase tracking-[0.25em] text-white/25">Human Gates</div>
               <ProvenanceBadge state="USER_INPUT" />
             </div>
-            <p className="mt-1 text-[9px] text-white/25 leading-relaxed">
-              Mark when YOU have verified on chart. Cannot be auto-satisfied — this is the human lock.
+            <p className="text-[8px] text-white/22 leading-relaxed mb-3">
+              Mark when verified on chart. Cannot be auto-satisfied.
             </p>
             <button
               onClick={() => setStructureReady(!state.structureContext)}
-              className={`mt-3 w-full rounded-xl border px-3 py-2.5 text-xs font-bold transition-all duration-200 ${
-                state.structureContext
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.03] text-white/60 hover:text-white"
-              }`}
+              className="w-full rounded-xl border px-3 py-3 text-xs font-black transition-all duration-200 relative overflow-hidden"
+              style={state.structureContext ? {
+                borderColor: "rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#10b981",
+                boxShadow: "0 0 20px rgba(16,185,129,0.08)",
+              } : {
+                borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.025)", color: "rgba(255,255,255,0.5)",
+              }}
             >
-              {state.structureContext ? "✓ SMC Structure — READY" : "Mark SMC Structure Ready"}
+              {state.structureContext ? "✓ SMC STRUCTURE — READY" : "Mark SMC Structure Ready"}
             </button>
             <button
               onClick={() => setCorrelationReady(!state.correlationState)}
-              className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs font-bold transition-all duration-200 ${
-                state.correlationState
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.03] text-white/60 hover:text-white"
-              }`}
+              className="mt-2 w-full rounded-xl border px-3 py-3 text-xs font-black transition-all duration-200"
+              style={state.correlationState ? {
+                borderColor: "rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#10b981",
+                boxShadow: "0 0 20px rgba(16,185,129,0.08)",
+              } : {
+                borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.025)", color: "rgba(255,255,255,0.5)",
+              }}
             >
-              {state.correlationState ? "✓ Correlation — READY" : "Mark Correlation Ready"}
+              {state.correlationState ? "✓ CORRELATION — READY" : "Mark Correlation Ready"}
             </button>
           </section>
         </aside>
 
-        {/* ── CENTER COLUMN ── */}
-        <section className="space-y-4">
-          {/* Command State card */}
-          <div className="rounded-3xl border p-5" style={{ borderColor: style.border, background: style.bg }}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: style.fg }}>Command State</div>
-                  <ProvenanceBadge state={quoteProv} />
-                </div>
-                <div className="mt-1 text-5xl font-black tracking-tight" style={{ color: style.fg }}>{style.label}</div>
-                <div className="mt-2 text-[10px] leading-relaxed max-w-[260px]" style={{ color: `${style.fg}99` }}>
-                  {commandDirective}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-white/35">{asset.label}</div>
-                <div className="text-3xl font-black tabular-nums">
-                  {state.liveQuote ? formatPrice(state.selectedAsset, state.liveQuote.price) : "—"}
-                </div>
-                {priceChange != null && (
-                  <div className={`text-xs font-bold tabular-nums ${priceChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(2)}%
-                  </div>
-                )}
-                <div className="text-[10px] uppercase text-white/35">
-                  {loading ? "loading quote" : error ? "quote error" : state.liveQuote?.source ?? "no source"}
-                </div>
-              </div>
-            </div>
+        {/* ── CENTER COLUMN ─────────────────────────────────────── */}
+        <section className="space-y-3">
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Field label="Session" value={state.selectedSession}
-                accent={state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM") ? "#10b981" : "#f59e0b"} />
-              <Field label="Timeframe" value={state.selectedTimeframe} />
-              <Field label="Bias" value={decision.direction} />
-              <Field label="Confluence" value={`${decision.confluence.score}%`}
-                accent={decision.confluence.score >= 85 ? "#10b981" : decision.confluence.score >= 62 ? "#f59e0b" : "#ef4444"} />
-              <Field label="Entry" value={formatPrice(state.selectedAsset, decision.entry)} />
-              <Field label="Stop" value={formatPrice(state.selectedAsset, decision.stop)} />
-              <Field label="TP1 / TP2" value={`${formatPrice(state.selectedAsset, decision.tp1)} / ${formatPrice(state.selectedAsset, decision.tp2)}`} />
-              <Field label="Lot Size" value={risk.lots == null ? "—" : risk.lots.toFixed(2)} />
+          {/* ── COMMAND STATE CARD — the heart of the OS ── */}
+          <div
+            className="rounded-3xl border relative overflow-hidden"
+            style={{
+              borderColor: style.border,
+              background: `linear-gradient(135deg, ${style.fg}0a 0%, rgba(2,5,8,0.98) 55%)`,
+              boxShadow: `0 0 80px ${style.fg}0d, inset 0 1px 0 ${style.fg}18`,
+            }}
+          >
+            {/* Top accent line */}
+            <div className="absolute top-0 left-0 right-0 h-px"
+              style={{ background: `linear-gradient(90deg, ${style.fg}cc, ${style.fg}30 50%, transparent)` }} />
+            {/* Ambient glow */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: `radial-gradient(ellipse at 20% 40%, ${style.fg}0d 0%, transparent 60%)` }} />
+
+            <div className="p-5 relative">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                {/* Verdict block */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full animate-pulse"
+                      style={{ background: style.fg, boxShadow: `0 0 8px ${style.fg}` }} />
+                    <span className="text-[8px] uppercase tracking-[0.35em]" style={{ color: `${style.fg}80` }}>
+                      Command State
+                    </span>
+                    <ProvenanceBadge state={quoteProv} />
+                  </div>
+                  <div
+                    className="font-black tracking-tight leading-none"
+                    style={{
+                      fontSize: "clamp(44px,6vw,72px)",
+                      color: style.fg,
+                      textShadow: `0 0 60px ${style.fg}55, 0 0 120px ${style.fg}20`,
+                    }}
+                  >
+                    {style.label}
+                  </div>
+                  <div className="mt-3 text-[11px] leading-relaxed max-w-[300px]" style={{ color: `${style.fg}75` }}>
+                    {commandDirective}
+                  </div>
+                </div>
+
+                {/* Live price */}
+                <div className="text-right">
+                  <div className="text-[8px] uppercase tracking-[0.25em] text-white/30 mb-1">{asset.label}</div>
+                  <div className="text-4xl font-black tabular-nums leading-none">
+                    {state.liveQuote ? formatPrice(state.selectedAsset, state.liveQuote.price) : "—"}
+                  </div>
+                  {priceChange != null && (
+                    <div className={`text-sm font-black tabular-nums mt-1 ${priceChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(2)}%
+                    </div>
+                  )}
+                  <div className="text-[8px] uppercase text-white/25 mt-1">
+                    {loading ? "loading" : error ? "error" : state.liveQuote?.source ?? "—"}
+                  </div>
+                  {quoteAge !== null && (
+                    <div className="text-[9px] font-mono tabular-nums mt-0.5" style={{
+                      color: quoteAge < 15 ? "#10b981" : quoteAge < 60 ? "#f59e0b" : "#ef4444",
+                    }}>
+                      {quoteAge < 60 ? `${quoteAge}s ago` : `${Math.floor(quoteAge / 60)}m ${quoteAge % 60}s ago`}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Data health strip */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {([
+                  {
+                    label: "QUOTE",
+                    ok: !!state.liveQuote && !state.liveQuote.stale,
+                    warn: !!state.liveQuote?.stale,
+                    detail: quoteAge !== null
+                      ? (quoteAge < 60 ? `${quoteAge}s` : `${Math.floor(quoteAge / 60)}m`) + " · " + (state.liveQuote?.source ?? "?")
+                      : "missing",
+                  },
+                  { label: "STRUCTURE",   ok: !!state.structureContext,  warn: false, detail: state.structureContext ? "verified" : "unverified" },
+                  { label: "CORRELATION", ok: !!state.correlationState,  warn: false, detail: state.correlationState ? "verified" : "unverified" },
+                  {
+                    label: "SESSION",
+                    ok: isKillzone(state.selectedSession),
+                    warn: !isKillzone(state.selectedSession) && !state.selectedSession.includes("WEEKEND") && !state.selectedSession.includes("DEAD"),
+                    detail: state.selectedSession.split(" ")[0].toLowerCase(),
+                  },
+                ] as const).map(({ label, ok, warn, detail }) => {
+                  const color = ok ? "#10b981" : warn ? "#f59e0b" : "#ef4444";
+                  return (
+                    <div key={label} className="flex items-center gap-1.5 rounded-lg border px-2 py-1"
+                      style={{ borderColor: `${color}22`, background: `${color}07` }}>
+                      <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
+                      <span className="text-[8px] font-black uppercase tracking-wider" style={{ color }}>{label}</span>
+                      <span className="text-[8px] text-white/20">{detail}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 8 field grid */}
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <Field label="Session" value={state.selectedSession}
+                  accent={state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM") ? "#10b981" : "#f59e0b"} />
+                <Field label="Timeframe" value={state.selectedTimeframe} />
+                <Field label="Bias" value={decision.direction} accent={biasColor} />
+                <Field label="Confluence" value={`${decision.confluence.score}%`} accent={confluenceColor} />
+                <Field label="Entry" value={formatPrice(state.selectedAsset, decision.entry)} />
+                <Field label="Stop"  value={formatPrice(state.selectedAsset, decision.stop)} />
+                <Field label="TP1 / TP2" value={`${formatPrice(state.selectedAsset, decision.tp1)} / ${formatPrice(state.selectedAsset, decision.tp2)}`} />
+                <Field label="Lot Size" value={risk.lots == null ? "—" : risk.lots.toFixed(2)} accent={risk.lots != null ? "#10b981" : undefined} />
+              </div>
             </div>
           </div>
 
-          {/* AUTHORIZE risk confirmation — only shown when execution is sanctioned */}
+          {/* AUTHORIZE risk confirmation */}
           {decision.command === "AUTHORIZE" && risk.lots != null && (
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-black">Risk Confirmation</div>
-                <div className="text-[9px] text-emerald-400/60">verify before executing</div>
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-4"
+              style={{ boxShadow: "0 0 40px rgba(16,185,129,0.06)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[9px] uppercase tracking-[0.25em] text-emerald-400 font-black">Risk Confirmation</div>
+                <div className="text-[8px] text-emerald-400/50">verify before executing on MT4/MT5</div>
               </div>
-              <div className="grid grid-cols-3 gap-3 text-[10px]">
-                <div>
-                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Lot Size</div>
-                  <div className="text-white font-black text-base">{risk.lots.toFixed(2)}</div>
-                </div>
-                <div>
-                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Risk Amount</div>
-                  <div className="text-emerald-400 font-black text-base">£{risk.riskAmount.toFixed(0)}</div>
-                </div>
-                <div>
-                  <div className="text-white/30 uppercase tracking-wide text-[9px]">Stop Distance</div>
-                  <div className="text-white font-black text-base">{risk.stopDistance != null ? `${risk.stopDistance.toFixed(asset.decimals)} (${(risk.stopDistance / asset.pipSize).toFixed(0)} pips)` : "—"}</div>
-                </div>
-              </div>
-              <div className="mt-2 text-[9px] text-white/30 border-t border-emerald-500/10 pt-2">
-                Max daily loss: £{(state.accountProfile.balance * state.accountProfile.maxDailyLossPct / 100).toFixed(0)} ({state.accountProfile.maxDailyLossPct}%) · Max weekly: £{(state.accountProfile.balance * state.accountProfile.maxWeeklyLossPct / 100).toFixed(0)} ({state.accountProfile.maxWeeklyLossPct}%)
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  ["Lot Size",      risk.lots.toFixed(2),                    "rgba(255,255,255,0.9)"],
+                  ["Risk Amount",   `£${risk.riskAmount.toFixed(0)}`,        "#10b981"],
+                  ["Stop Distance", risk.stopDistance != null ? `${risk.stopDistance.toFixed(asset.decimals)} (${(risk.stopDistance / asset.pipSize).toFixed(0)}p)` : "—", "rgba(255,255,255,0.7)"],
+                ].map(([l, v, c]) => (
+                  <div key={l}>
+                    <div className="text-[8px] text-white/28 uppercase tracking-wider mb-1">{l}</div>
+                    <div className="text-lg font-black" style={{ color: c }}>{v}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* EXA Intelligence — 4-LOCKS + Factor bars */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          {/* EXA 4-LOCKS + Intelligence bars */}
+          <div className="grid gap-3 lg:grid-cols-2">
             {/* 4-LOCKS */}
-            <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-              <div className="mb-3 flex items-center justify-between">
+            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA 4-Locks</div>
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">EXA 4-Locks</div>
                   <ProvenanceBadge state="MODEL_INFERENCE" />
                 </div>
-                <div className={`text-[10px] font-bold tabular-nums ${locksActive === 4 ? "text-emerald-400" : locksActive >= 2 ? "text-amber-400" : "text-red-400"}`}>
-                  {locksActive}/4 engaged
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-2xl font-black tabular-nums ${locksActive === 4 ? "text-emerald-400" : locksActive >= 2 ? "text-amber-400" : "text-red-400"}`}>
+                    {locksActive}
+                  </span>
+                  <span className="text-[10px] text-white/25">/4</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {LOCK_LABELS.map((label, i) => (
                   <div
                     key={label}
-                    className={`flex items-center gap-2 rounded-xl border p-2.5 transition-all duration-300 ${
-                      exa.locks[i]
-                        ? "border-emerald-500/25 bg-emerald-500/[0.06]"
-                        : "border-white/[0.06] bg-white/[0.015]"
-                    }`}
+                    className="rounded-xl border p-3 transition-all duration-300 relative overflow-hidden"
+                    style={{
+                      borderColor: exa.locks[i] ? "rgba(16,185,129,0.28)" : "rgba(255,255,255,0.05)",
+                      background: exa.locks[i] ? "rgba(16,185,129,0.06)" : "rgba(255,255,255,0.015)",
+                      boxShadow: exa.locks[i] ? "0 0 20px rgba(16,185,129,0.07)" : "none",
+                    }}
                   >
-                    <div className={`h-2 w-2 shrink-0 rounded-full ${exa.locks[i] ? "bg-emerald-400" : "bg-white/15"}`} />
-                    <span className={`text-[10px] uppercase tracking-wider ${exa.locks[i] ? "text-emerald-400" : "text-white/30"}`}>
+                    {exa.locks[i] && (
+                      <div className="absolute top-0 left-0 right-0 h-px"
+                        style={{ background: "linear-gradient(90deg, #10b98155, transparent)" }} />
+                    )}
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <div className="h-2 w-2 rounded-full shrink-0"
+                        style={{ background: exa.locks[i] ? "#10b981" : "rgba(255,255,255,0.1)", boxShadow: exa.locks[i] ? "0 0 6px #10b981" : "none" }} />
+                      <span className="text-[8px] text-white/20">L{i + 1}</span>
+                    </div>
+                    <div className="text-[11px] font-black uppercase tracking-wide"
+                      style={{ color: exa.locks[i] ? "#10b981" : "rgba(255,255,255,0.28)" }}>
                       {label}
-                    </span>
+                    </div>
                   </div>
                 ))}
               </div>
-              {/* Readiness gates status (mirrored here for at-a-glance) */}
-              <div className="mt-3 border-t border-white/[0.05] pt-3 space-y-1">
-                <div className="flex items-center gap-2 text-[9px]">
-                  <div className={`h-1.5 w-1.5 rounded-full ${state.structureContext ? "bg-emerald-400" : "bg-white/20"}`} />
-                  <span className={state.structureContext ? "text-emerald-400" : "text-white/30"}>
-                    SMC Structure {state.structureContext ? "verified" : "not verified"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[9px]">
-                  <div className={`h-1.5 w-1.5 rounded-full ${state.correlationState ? "bg-emerald-400" : "bg-white/20"}`} />
-                  <span className={state.correlationState ? "text-emerald-400" : "text-white/30"}>
-                    Correlation {state.correlationState ? "verified" : "not verified"}
-                  </span>
-                </div>
+              <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-1.5">
+                {[
+                  ["SMC Structure", !!state.structureContext],
+                  ["Correlation",   !!state.correlationState],
+                ].map(([label, done]) => (
+                  <div key={label} className="flex items-center gap-2 text-[9px]">
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ background: done ? "#10b981" : "rgba(255,255,255,0.15)" }} />
+                    <span style={{ color: done ? "#10b981" : "rgba(255,255,255,0.28)" }}>{label} {done ? "verified" : "not verified"}</span>
+                  </div>
+                ))}
               </div>
             </section>
 
             {/* Factor bars */}
-            <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-              <div className="mb-3 flex items-center justify-between">
+            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">EXA Intelligence</div>
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">EXA Intelligence</div>
                   <ProvenanceBadge state="MODEL_INFERENCE" />
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-baseline gap-2">
                   {exa.winRate != null && (
-                    <span className="text-[9px] text-white/30">
-                      {exa.winRate}% win · {exa.expectancy}
-                    </span>
+                    <span className="text-[8px] text-white/25">{exa.winRate}% win</span>
                   )}
-                  <span className={`text-sm font-black tabular-nums ${exa.composite >= 85 ? "text-emerald-400" : exa.composite >= 62 ? "text-amber-400" : "text-red-400"}`}>
-                    {exa.composite}%
+                  <span className="text-xl font-black tabular-nums"
+                    style={{ color: exa.composite >= 85 ? "#10b981" : exa.composite >= 62 ? "#f59e0b" : "#ef4444" }}>
+                    {exa.composite}
                   </span>
+                  <span className="text-[9px] text-white/25">/100</span>
                 </div>
               </div>
               {exa.factors.length === 0 ? (
                 <div className="text-[10px] text-white/25">Building score…</div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {exa.factors.map((f) => (
                     <FactorBar key={f.label} label={f.label} value={f.value} note={f.note} />
                   ))}
                 </div>
               )}
               {exa.confirmation.total > 0 && (
-                <div className="mt-3 border-t border-white/[0.05] pt-2.5">
+                <div className="mt-3 pt-2.5 border-t border-white/[0.04]">
                   <div className="flex items-center justify-between text-[9px]">
-                    <span className="text-white/30">Correlation consensus</span>
-                    <span className={`font-bold ${exa.confirmation.score >= 60 ? "text-emerald-400" : exa.confirmation.score >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                    <span className="text-white/28">Correlation consensus</span>
+                    <span className="font-black" style={{ color: exa.confirmation.score >= 60 ? "#10b981" : exa.confirmation.score >= 40 ? "#f59e0b" : "#ef4444" }}>
                       {exa.confirmation.confidence} · {exa.confirmation.confirms}/{exa.confirmation.total} agree
                     </span>
                   </div>
@@ -615,130 +753,120 @@ const CommandScreen = () => {
             </section>
           </div>
 
-          {/* Top Reasons | Blockers */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400">Top Reasons</div>
-              <div className="mt-3 space-y-2">
+          {/* Reasons + Blockers */}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <section className="rounded-2xl border border-emerald-500/10 bg-emerald-500/[0.02] p-4">
+              <div className="text-[9px] uppercase tracking-[0.2em] text-emerald-400/70 mb-3">Top Reasons</div>
+              <div className="space-y-1.5">
                 {(decision.confluence.reasons.length ? decision.confluence.reasons : ["No validated reasons yet."]).slice(0, 5).map((r, i) => (
-                  <div key={i} className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.04] p-3 text-xs text-white/70">{r}</div>
+                  <div key={i} className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] px-3 py-2 text-[11px] text-white/60">{r}</div>
                 ))}
               </div>
             </section>
-            <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-red-400">Blockers</div>
-              <div className="mt-3 space-y-2">
+            <section className="rounded-2xl border border-red-500/10 bg-red-500/[0.02] p-4">
+              <div className="text-[9px] uppercase tracking-[0.2em] text-red-400/70 mb-3">Blockers</div>
+              <div className="space-y-1.5">
                 {(decision.confluence.blockers.length ? decision.confluence.blockers : ["No blockers."]).slice(0, 7).map((b, i) => (
-                  <div key={i} className="rounded-xl border border-red-500/10 bg-red-500/[0.04] p-3 text-xs text-white/70">{b}</div>
+                  <div key={i} className="rounded-xl border border-red-500/10 bg-red-500/[0.03] px-3 py-2 text-[11px] text-white/60">{b}</div>
                 ))}
               </div>
             </section>
           </div>
 
           {/* Trade Plan Inputs */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30">Trade Plan Inputs</div>
-                  <ProvenanceBadge state="USER_INPUT" />
-                </div>
-                <div className="text-xs text-white/35">Manual until live SMC engine writes these fields.</div>
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-[9px] uppercase tracking-[0.2em] text-white/28">Trade Plan</div>
+                <ProvenanceBadge state="USER_INPUT" />
+                <span className="text-[8px] text-white/20">Manual until live SMC engine writes these.</span>
               </div>
               <div className="flex items-center gap-2">
                 {(state.setup.entry || state.setup.stop) && (
-                  <button
-                    onClick={() => updateSetup({ command: "INVALIDATED" })}
-                    className="rounded border border-red-500/25 px-2 py-1 text-[9px] uppercase text-red-400/70 hover:text-red-400"
-                  >
+                  <button onClick={() => updateSetup({ command: "INVALIDATED" })}
+                    className="rounded border border-red-500/25 px-2 py-1 text-[8px] uppercase text-red-400/60 hover:text-red-400">
                     Invalidate
                   </button>
                 )}
                 <button
                   onClick={() => updateSetup({ entry: undefined, stop: undefined, tp1: undefined, tp2: undefined, rr: undefined, invalidation: undefined })}
-                  className="text-[10px] text-white/35 hover:text-white"
-                >
+                  className="text-[9px] text-white/28 hover:text-white">
                   clear
                 </button>
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-3">
               {(["entry", "stop", "tp1", "tp2", "rr", "invalidation"] as const).map((key) => (
                 <label key={key} className="block">
-                  <span className="text-[9px] uppercase tracking-[0.16em] text-white/30">{key === "rr" ? "R:R" : key}</span>
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-white/25">{key === "rr" ? "R:R" : key}</span>
                   <input
                     value={(state.setup as any)[key] ?? ""}
                     onChange={(e) => updateSetup({ [key]: e.target.value } as any)}
                     placeholder={key === "rr" && autoRR ? `${autoRR}:1 (auto)` : undefined}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none placeholder:text-white/20"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-white outline-none placeholder:text-white/18"
                   />
                 </label>
               ))}
             </div>
             {autoRR && (
-              <div className="mt-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2 text-[10px] text-white/45">
-                Auto R:R from entry / stop / TP1 —{" "}
-                <span className="font-bold text-amber-400">{autoRR}:1</span>
-                {risk.lots != null && (
-                  <span className="ml-3 text-white/30">
-                    {risk.lots.toFixed(2)} lots · {risk.note}
-                  </span>
-                )}
+              <div className="mt-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.03] px-3 py-2 text-[10px] text-white/40">
+                Auto R:R — <span className="font-black text-amber-400">{autoRR}:1</span>
+                {risk.lots != null && <span className="ml-3 text-white/25">{risk.lots.toFixed(2)} lots · {risk.note}</span>}
               </div>
             )}
           </section>
         </section>
 
-        {/* ── RIGHT COLUMN ── */}
-        <aside className="space-y-4">
-          {/* EXA Structured Read — replaces pre-block debug output */}
-          <section className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.03] p-4">
+        {/* ── RIGHT COLUMN ──────────────────────────────────────── */}
+        <aside className="space-y-3">
+
+          {/* EXA Operator Read */}
+          <section className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.03] p-4 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, #a855f740, transparent)" }} />
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-violet-400">EXA Operator Read</div>
+                <div className="text-[9px] uppercase tracking-[0.2em] text-violet-400/80">EXA Operator Read</div>
                 <ProvenanceBadge state="MODEL_INFERENCE" />
               </div>
-              <button
-                onClick={() => navigator.clipboard?.writeText(aiRead)}
-                className="text-[8px] uppercase tracking-wider text-white/20 hover:text-white/50 transition-colors"
-              >
+              <button onClick={() => navigator.clipboard?.writeText(aiRead)}
+                className="text-[8px] uppercase tracking-wider text-white/20 hover:text-white/50 transition-colors">
                 copy
               </button>
             </div>
             <div className="space-y-2">
               {([
-                { label: "asset",     value: asset.label,             color: "rgba(255,255,255,0.88)" },
-                { label: "session",   value: state.selectedSession,    color: sessionAccent },
-                { label: "bias",      value: decision.direction,       color: biasColor },
-                { label: "phase",     value: style.label,              color: style.fg },
-                { label: "confluenc", value: `${decision.confluence.score}%`, color: confluenceColor },
-                { label: "action",    value: commandDirective,         color: "rgba(255,255,255,0.65)" },
-                ...(risk.lots != null ? [{ label: "lot size", value: `${risk.lots.toFixed(2)} · ${risk.note}`, color: "rgba(255,255,255,0.38)" }] : []),
-                ...(autoRR ? [{ label: "r:r", value: `${autoRR}:1`, color: "rgba(255,255,255,0.38)" }] : []),
+                { label: "ASSET",    value: asset.label,                   color: "rgba(255,255,255,0.9)" },
+                { label: "SESSION",  value: state.selectedSession,          color: sessionAccent },
+                { label: "BIAS",     value: decision.direction,             color: biasColor },
+                { label: "PHASE",    value: style.label,                    color: style.fg },
+                { label: "CONF",     value: `${decision.confluence.score}%`, color: confluenceColor },
+                { label: "ACTION",   value: commandDirective,               color: "rgba(255,255,255,0.6)" },
+                ...(risk.lots != null ? [{ label: "LOTS", value: `${risk.lots.toFixed(2)} · ${risk.note}`, color: "rgba(255,255,255,0.35)" }] : []),
+                ...(autoRR ? [{ label: "R:R", value: `${autoRR}:1`, color: "rgba(255,255,255,0.35)" }] : []),
               ] as { label: string; value: string; color: string }[]).map(({ label, value, color }) => (
                 <div key={label} className="flex items-baseline gap-2">
-                  <span className="text-[8.5px] uppercase tracking-[0.1em] text-white/22 shrink-0" style={{ minWidth: "68px" }}>{label}</span>
+                  <span className="text-[8px] uppercase tracking-[0.12em] text-white/20 shrink-0" style={{ minWidth: "52px" }}>{label}</span>
                   <span className="text-[11px] font-black leading-tight" style={{ color }}>{value}</span>
                 </div>
               ))}
             </div>
             {decision.missingData.length > 0 && (
               <div className="mt-3 pt-2.5 border-t border-violet-500/10">
-                <div className="text-[8px] uppercase tracking-wider text-violet-400/50 mb-1.5">Missing data</div>
+                <div className="text-[8px] uppercase tracking-wider text-violet-400/45 mb-1.5">Missing</div>
                 {decision.missingData.slice(0, 3).map((m, i) => (
-                  <div key={i} className="text-[9px] text-white/30 leading-relaxed">◌ {m}</div>
+                  <div key={i} className="text-[9px] text-white/28 leading-relaxed">◌ {m}</div>
                 ))}
               </div>
             )}
           </section>
 
-          {/* NEXUS-C — context-bound command analyst */}
-          <section className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.02] overflow-hidden" style={{ height: 280 }}>
-            <div className="px-4 pt-3 pb-2 border-b border-white/[0.05]">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400">NEXUS-C · Command Analyst</div>
-              <div className="text-[9px] text-white/20 mt-0.5">context-bound · WARROOM READ format</div>
+          {/* NEXUS-C */}
+          <section className="rounded-2xl border border-emerald-500/12 bg-emerald-500/[0.015] overflow-hidden" style={{ height: 270 }}>
+            <div className="px-4 pt-3 pb-2 border-b border-white/[0.04]">
+              <div className="text-[9px] uppercase tracking-[0.2em] text-emerald-400/75">NEXUS-C · Command Analyst</div>
+              <div className="text-[8px] text-white/18 mt-0.5">context-bound · WARROOM READ format</div>
             </div>
-            <div style={{ height: 232 }}>
+            <div style={{ height: 222 }}>
               <ScreenAgent
                 agentId="NEXUS-C"
                 agentRole="command analyst"
@@ -749,53 +877,59 @@ const CommandScreen = () => {
             </div>
           </section>
 
-          {/* Session Intel — replaces Architecture Gate dev checklist */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">Session Intel</div>
-            <div className="text-sm font-black uppercase tracking-wide leading-tight" style={{ color: sessionAccent }}>
+          {/* Session Intel */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Session Intel</div>
+            <div className="text-base font-black uppercase tracking-wide leading-tight" style={{ color: sessionAccent }}>
               {state.selectedSession}
             </div>
-            <div className="text-[9px] text-white/35 mt-1.5 leading-relaxed">
+            <div className="text-[10px] text-white/32 mt-2 leading-relaxed">
               {SESSION_RECOMMENDATION[state.selectedSession] ?? "Monitor conditions."}
             </div>
-            <div className="mt-3 pt-3 border-t border-white/[0.05]">
-              <div className="text-[8px] uppercase tracking-wider text-white/22 mb-1.5">Next Killzone</div>
+            <div className="mt-3 pt-3 border-t border-white/[0.04]">
+              <div className="text-[8px] uppercase tracking-wider text-white/20 mb-1.5">Next Killzone</div>
               {nextKZ ? (
                 <div>
-                  <div className="text-[11px] font-black" style={{ color: nextKZ.minutesAway < 60 ? "#f59e0b" : "rgba(255,255,255,0.55)" }}>
+                  <div className="text-[13px] font-black" style={{ color: nextKZ.minutesAway < 60 ? "#f59e0b" : "rgba(255,255,255,0.5)" }}>
                     {nextKZ.label}
                   </div>
-                  <div className="text-[9px] text-white/30 mt-0.5">in {formatCountdown(nextKZ.minutesAway)}</div>
+                  <div className="text-[9px] text-white/28 mt-0.5">in {formatCountdown(nextKZ.minutesAway)}</div>
                 </div>
               ) : (
-                <div className="text-[10px] font-bold" style={{ color: sessionAccent }}>Currently active</div>
+                <div className="text-[12px] font-black" style={{ color: sessionAccent }}>Currently active</div>
               )}
             </div>
           </section>
 
-          {/* Path to AUTHORIZE — live status */}
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/30">Path to Authorize</div>
-            <div className="space-y-2 text-[10px]">
+          {/* Path to Authorize */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="text-[8px] uppercase tracking-[0.25em] text-white/25 mb-3">Path to Authorize</div>
+            <div className="space-y-2.5">
               {[
-                { label: "Live quote", done: !!state.liveQuote && !state.liveQuote.stale },
-                { label: "SMC structure verified", done: !!state.structureContext },
-                { label: "Correlation verified", done: !!state.correlationState },
-                { label: "Confluence ≥ 85%", done: decision.confluence.score >= 85 },
+                { label: "Live quote",              done: !!state.liveQuote && !state.liveQuote.stale },
+                { label: "SMC structure verified",  done: !!state.structureContext },
+                { label: "Correlation verified",    done: !!state.correlationState },
+                { label: "Confluence ≥ 85%",        done: decision.confluence.score >= 85 },
                 {
                   label: (() => {
                     const inKZ = state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM");
-                    if (inKZ) return "In killzone / NY overlap";
-                    if (nextKZ) return `In killzone · ${nextKZ.label} in ${formatCountdown(nextKZ.minutesAway)}`;
+                    if (inKZ) return "In killzone";
+                    if (nextKZ) return `${nextKZ.label} in ${formatCountdown(nextKZ.minutesAway)}`;
                     return "In killzone / NY overlap";
                   })(),
                   done: state.selectedSession.includes("KILL") || state.selectedSession.includes("NY AM"),
                 },
                 { label: "Entry / stop / TP entered", done: !!(state.setup.entry && state.setup.stop && state.setup.tp1) },
-              ].map(({ label, done }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${done ? "bg-emerald-400" : "bg-white/15"}`} />
-                  <span className={done ? "text-emerald-400" : "text-white/35"}>{label}</span>
+              ].map(({ label, done }, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className="h-4 w-4 shrink-0 rounded-full border flex items-center justify-center"
+                    style={{
+                      borderColor: done ? "#10b981" : "rgba(255,255,255,0.1)",
+                      background: done ? "rgba(16,185,129,0.12)" : "transparent",
+                    }}>
+                    {done && <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                  </div>
+                  <span className="text-[10px]" style={{ color: done ? "#10b981" : "rgba(255,255,255,0.32)" }}>{label}</span>
                 </div>
               ))}
             </div>
