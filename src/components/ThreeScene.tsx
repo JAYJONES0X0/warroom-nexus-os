@@ -286,10 +286,10 @@ const OrbitRing = ({ radius, opacity=0.12 }: { radius:number; opacity?:number })
 // COSMOS = module navigation layer. COMMAND = asset execution layer.
 const PLANET_DEFS = [
   // Inner orbit — active OS modules
-  { assetKey: "command",    texture: jupiterTex, distance: 18, angle: 0,   size: 3.2, baseGlow: "#ef4444", orbitSpeed: 0.00045 },
+  { assetKey: "command",    texture: jupiterTex, distance: 18, angle: 270, size: 3.2, baseGlow: "#ef4444", orbitSpeed: 0.00045 },
   { assetKey: "markets",    texture: saturnTex,  distance: 18, angle: 90,  size: 3.0, baseGlow: "#3b82f6", rings: true, orbitSpeed: 0.00038 },
   { assetKey: "intel",      texture: neptuneTex, distance: 18, angle: 180, size: 2.8, baseGlow: "#f59e0b", orbitSpeed: 0.00052 },
-  { assetKey: "polymarket", texture: uranusTex,  distance: 18, angle: 270, size: 3.1, baseGlow: "#a855f7", orbitSpeed: 0.00035 },
+  { assetKey: "polymarket", texture: uranusTex,  distance: 18, angle: 0,   size: 3.1, baseGlow: "#a855f7", orbitSpeed: 0.00035 },
   // Outer orbit — utility modules
   { assetKey: "journal",    texture: earthTex,   distance: 30, angle: 0,   size: 2.5, baseGlow: "#10b981", orbitSpeed: 0.00028 },
   { assetKey: "risk",       texture: marsTex,    distance: 30, angle: 72,  size: 2.6, baseGlow: "#ff6644", orbitSpeed: 0.00022 },
