@@ -8,6 +8,7 @@ import { ScreenAgent } from "@/components/ScreenAgent";
 import { MacroCalendar } from "@/components/MacroCalendar";
 import { MarketsChart } from "@/components/MarketsChart";
 import { DrawingTools } from "@/components/DrawingTools";
+import { useWarroom } from "@/context/WarroomStateContext";
 
 // ─── constants ───────────────────────────────────────────────────────────────
 const ALL_ASSETS = [
@@ -92,6 +93,7 @@ const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const MarketsScreen = () => {
+  const { state, updateSetup, updateJournalDraft } = useWarroom();
   const { prices, source } = usePrices();
   const [selected, setSelected]  = useState("XAUUSD");
   const [tf, setTf]              = useState("1h");
@@ -499,6 +501,38 @@ const MarketsScreen = () => {
                 </div>
                 <div className="text-[8px] text-white/15 font-mono mt-1">
                   Chart + signals are live. Execute on your broker platform.
+                </div>
+              </div>
+
+              {/* WARROOM Actions */}
+              <div className="px-3 py-3 border-t border-white/[0.05]">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">WARROOM Actions</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 mb-2">
+                  <button onClick={() => {
+                    updateSetup({ entry: livePrice ? livePrice.toFixed(asset.dec) : "" });
+                    window.location.href = "/";
+                  }}
+                    className="text-[8px] font-black uppercase tracking-wider py-1.5 rounded border transition-all"
+                    style={{ color: "#38bdf8", borderColor: "rgba(56,189,248,0.25)", background: "rgba(56,189,248,0.06)" }}>
+                    → COMMAND
+                  </button>
+                  <button onClick={() => {
+                    updateJournalDraft({
+                      asset: selected, direction: exa.bias === "BULLISH" ? "LONG" : exa.bias === "BEARISH" ? "SHORT" : "NEUTRAL",
+                      entry: livePrice ? livePrice.toFixed(asset.dec) : "", stop: "", tp1: "",
+                      lots: 0, riskAmount: 0, session: getSession().label, timeframe: tf,
+                      timestamp: Date.now(), notes: `From Markets: ${asset.label} at ${livePrice ? livePrice.toFixed(asset.dec) : "—"}`,
+                    });
+                  }}
+                    className="text-[8px] font-black uppercase tracking-wider py-1.5 rounded border transition-all"
+                    style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.06)" }}>
+                    → JOURNAL
+                  </button>
+                </div>
+                <div className="text-[7px] text-white/15 font-mono">
+                  Sends current price + asset to Command setup or Journal draft.
                 </div>
               </div>
 
