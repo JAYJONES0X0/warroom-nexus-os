@@ -16,6 +16,7 @@ import ReportsScreen from "./pages/ReportsScreen";
 import JournalScreen from "./pages/JournalScreen";
 import AlertsScreen from "./pages/AlertsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
+import RiskScreen from "./pages/RiskScreen";
 import PolymarketScreen from "./pages/PolymarketScreen";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/reports" element={<ReportsScreen />} />
               <Route path="/journal" element={<JournalScreen />} />
               <Route path="/alerts" element={<AlertsScreen />} />
+              <Route path="/risk" element={<RiskScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
               <Route path="/polymarket" element={<PolymarketScreen />} />
             </Route>

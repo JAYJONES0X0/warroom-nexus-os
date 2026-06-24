@@ -4,6 +4,7 @@ import {
   getSessionLabel,
   type AccountProfile,
   type ConfluenceState,
+  type JournalDraft,
   type QuoteState,
   type SetupState,
   type WarroomState,
@@ -20,6 +21,7 @@ interface WarroomContextValue {
   updateSetup: (patch: Partial<SetupState>) => void;
   setStructureReady: (ready: boolean) => void;
   setCorrelationReady: (ready: boolean) => void;
+  updateJournalDraft: (draft: JournalDraft | null) => void;
   reset: () => void;
 }
 
@@ -115,10 +117,13 @@ export function WarroomProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => setState(DEFAULT_WARROOM_STATE), []);
 
+  const updateJournalDraft = useCallback((draft: JournalDraft | null) =>
+    setState((s) => ({ ...s, journalDraft: draft })), []);
+
   const value = useMemo<WarroomContextValue>(() => ({
     state, setAsset, setTimeframe, updateAccount, updateQuote,
-    updateConfluence, updateSetup, setStructureReady, setCorrelationReady, reset,
-  }), [state, setAsset, setTimeframe, updateAccount, updateQuote, updateConfluence, updateSetup, setStructureReady, setCorrelationReady, reset]);
+    updateConfluence, updateSetup, setStructureReady, setCorrelationReady, updateJournalDraft, reset,
+  }), [state, setAsset, setTimeframe, updateAccount, updateQuote, updateConfluence, updateSetup, setStructureReady, setCorrelationReady, updateJournalDraft, reset]);
 
   return <WarroomContext.Provider value={value}>{children}</WarroomContext.Provider>;
 }

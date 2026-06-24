@@ -84,7 +84,23 @@ export interface WarroomState {
   aiContext: unknown | null;
   alerts: unknown[];
   drawings: unknown[];
-  journalDraft: unknown | null;
+  journalDraft: JournalDraft | null;
+}
+
+export interface JournalDraft {
+  asset: string;
+  direction: Direction;
+  entry: number | string;
+  stop: number | string;
+  tp1: number | string;
+  tp2?: number | string;
+  rr?: string;
+  lots: number;
+  riskAmount: number;
+  session: string;
+  timeframe: string;
+  timestamp: number;
+  notes: string;
 }
 
 export interface CommandDecision extends SetupState {

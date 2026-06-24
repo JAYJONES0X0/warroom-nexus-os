@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePrices, PriceData } from '@/hooks/usePrices';
+import { useEXAScan } from '@/hooks/useEXAScores';
+import type { EXAScores } from '@/hooks/useEXAScores';
 
 interface LogEntry {
   type: 'info' | 'success' | 'warning' | 'error' | 'input' | 'system' | 'analysis';
@@ -22,7 +24,6 @@ function dir(p: PriceData | undefined): string {
 
 const ASSETS = ['EURUSD', 'XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'NZDUSD', 'NAS100', 'SPX', 'BTCUSD', 'DXY'];
 
-// Real data extracted from WARROOM NEXUS playbooks
 const PLAYBOOK: Record<string, { winRate: number; sessions: string; correlation: string; behavior: string; avoid: string; rr: string }> = {
   EURUSD: { winRate: 68, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse DXY (primary)', behavior: 'Trending with deep H4 retracements. Sweeps Asian highs/lows at London open.', avoid: 'After 18:00 GMT (low liquidity)', rr: '1:2.8 avg' },
   XAUUSD: { winRate: 72, sessions: 'London (07:00-10:00) + NY (12:00-15:00)', correlation: 'Inverse DXY 85%+ / Inverse US yields', behavior: 'Highest expectancy asset in system. Pre-CPI accumulation → post-CPI delivery. Geopolitical spike → fade.', avoid: 'During NFP/FOMC first 5min — whipsaw extreme', rr: '1:3.0 avg' },
@@ -79,53 +80,73 @@ const HELP_LINES = [
   '═══════════════════════════════════════════════════',
 ];
 
-function scanAll(prices: Prices): string[] {
+function scoreColor(composite: number): string {
+  return composite >= 80 ? '🟢' : composite >= 60 ? '🟡' : '🔴';
+}
+
+function scoreVerdict(composite: number): string {
+  return composite >= 82 ? 'DEPLOY' : composite >= 62 ? 'MONITOR' : 'WAIT';
+}
+
+function scanAll(prices: Prices, scanData: { pair: string; scores: EXAScores }[]): string[] {
   const s = getSession();
-  return [
+  const ranked = [...scanData].sort((a, b) => b.scores.composite - a.scores.composite);
+  const top3 = ranked.slice(0, 3);
+  const lines: string[] = [
     '════════════════════════════════════════════════════',
     '🏆 TOP SETUPS RANKED BY CONFLUENCE',
     '════════════════════════════════════════════════════',
     '',
-    '1. XAUUSD — 89/100 — 🟢 DEPLOY',
-    '   Locks: 4/4 | Entry: 3,318 | Targets: 3,340 / 3,362',
-    '   HTF bullish campaign intact. London swept equal lows. CHoCH H1 confirmed.',
-    '',
-    '2. GBPUSD — 74/100 — 🟡 MONITOR',
-    '   Locks: 3/4 | Entry: 1.3245 | Targets: 1.3285 / 1.3310',
-    '   DXY weakness confirmed. H4 OB respected. Awaiting M15 BOS trigger.',
-    '',
-    '3. NAS100 — 68/100 — 🟡 MONITOR',
-    '   Locks: 2/4 | Entry: 19,820 | Targets: 19,950 / 20,100',
-    '   SPX leading bullish. Risk-on active. Session timing not yet optimal.',
-    '',
-    '⚠️  CORRELATION CHECK:',
-    '   GBPUSD long ↔ DXY bearish — ALIGNED ✓',
-    '   XAUUSD long ↔ DXY bearish — ALIGNED ✓',
-    '   No conflicts detected in top 3.',
-    '',
-    `📊 MARKET BIAS: RISK-ON | ${s.icon} ${s.name}`,
-    '   Equities bid, DXY under pressure, commodities following through.',
-    '════════════════════════════════════════════════════',
   ];
+  if (top3.length > 0) {
+    top3.forEach((r, i) => {
+      const exa = r.scores;
+      const lockCount = exa.locks.filter(Boolean).length;
+      const verdictEmoji = scoreColor(exa.composite);
+      const dec = r.pair.includes("JPY") ? 3 : r.pair === "XAUUSD" ? 2 : r.pair === "NAS100" || r.pair === "BTCUSD" ? 0 : 4;
+      const livePrice = prices[r.pair]?.price;
+      lines.push(
+        `${i + 1}. ${r.pair} — ${exa.composite}/100 — ${verdictEmoji} ${scoreVerdict(exa.composite)}`,
+        `   Locks: ${lockCount}/4 | Confluence: ${exa.composite} | Bias: ${exa.bias}${livePrice ? ` | Live: ${livePrice.toFixed(dec)}` : ""}`,
+        `   ${exa.factors.slice(0, 2).map(f => `${f.label}: ${f.value}`).join(' · ')}`,
+        '',
+      );
+    });
+  } else {
+    lines.push('   No assets with live prices yet — feed warming up.', '');
+  }
+  lines.push(
+    `📊 MARKET BIAS: ${ranked.length > 0 ? 'See /bias for full sentiment' : 'Loading...'}`,
+    `   ${s.icon} ${s.name} — ${s.strategy.split('.')[0]}.`,
+    '════════════════════════════════════════════════════',
+  );
+  return lines;
 }
 
-function scanAsset(asset: string, prices: Prices = {}): string[] {
+function scanAsset(asset: string, prices: Prices, scanData: { pair: string; scores: EXAScores }[]): string[] {
   const upper = asset.toUpperCase();
   if (!ASSETS.includes(upper)) return [`❌ Unknown asset: ${upper}`, `Available: ${ASSETS.join(', ')}`];
   const s = getSession();
   const pb = PLAYBOOK[upper];
   const p = prices[upper];
+  const exa = scanData.find(r => r.pair === upper)?.scores;
+  const dec = upper.includes("JPY") ? 3 : upper === "XAUUSD" ? 2 : upper === "NAS100" || upper === "BTCUSD" || upper === "SPX" ? 0 : 4;
   const sessionInOptimal = pb.sessions.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]);
-  const lock3 = sessionInOptimal ? '✓' : '✗';
-  const locks = sessionInOptimal ? 3 : 2;
-  const verdict = locks >= 3 ? '🟡 MONITOR' : '🔴 WAIT';
+  const locks = exa?.locks ?? [false, false, false, false];
+  const lockCount = locks.filter(Boolean).length;
+  const composite = exa?.composite ?? 0;
+  const verdictEmoji = scoreColor(composite);
+  const verdict = scoreVerdict(composite);
   return [
     '════════════════════════════════════════════════════',
     `🔍 ${upper} DEEP DIVE SCAN`,
     '════════════════════════════════════════════════════',
     '',
-    `🎯 VERDICT: ${verdict} | ${locks}/4 EXA Locks | Playbook Win Rate: ${pb.winRate}%`,
-    p ? `   Live: ${fmt(p, upper === 'NAS100' || upper === 'SPX' || upper === 'BTCUSD' ? 0 : upper === 'XAUUSD' ? 2 : 4)} ${dir(p)}` : '   Live: fetching...',
+    `🎯 VERDICT: ${verdictEmoji} ${verdict} | ${lockCount}/4 EXA Locks | Composite: ${composite}/100 | Playbook Win Rate: ${pb.winRate}%`,
+    p ? `   Live: ${fmt(p, dec)} ${dir(p)}` : '   Live: fetching...',
+    '',
+    `📊 EXA SCORE FACTORS:`,
+    ...(exa?.factors.map(f => `   ${f.label.padEnd(20)} ${f.value.toString().padStart(3)}/100 — ${f.note}`) ?? ['   EXA analysis warming up...']),
     '',
     `📊 BEHAVIOR PROFILE:`,
     `   ${pb.behavior}`,
@@ -149,10 +170,10 @@ function scanAsset(asset: string, prices: Prices = {}): string[] {
     `   ${sessionInOptimal ? '✓ IN SESSION WINDOW' : '✗ OUTSIDE OPTIMAL WINDOW — reduce conviction'}`,
     '',
     '🔐 EXA 4-LOCKS:',
-    '   ✓ Lock 1: Structure — verify HTF trend before entry',
-    '   ? Lock 2: Liquidity Event — needs manual confirmation',
-    `   ${lock3} Lock 3: Session Timing — ${s.name}`,
-    '   ? Lock 4: Confirmation — CHoCH/BOS on LTF needed',
+    `   ${locks[0] ? '✓' : '✗'} Lock 1: Structure — ${exa?.technical ? `Technical ${exa.technical}/100` : 'verify HTF trend'}`,
+    `   ${locks[1] ? '✓' : '✗'} Lock 2: Liquidity Event — ${exa?.liquidity ? `Liquidity ${exa.liquidity}/100` : 'needs manual confirmation'}`,
+    `   ${locks[2] ? '✓' : '✗'} Lock 3: Session Timing — ${s.name}`,
+    `   ${locks[3] ? '✓' : '✗'} Lock 4: Confirmation — ${exa?.confirmation?.confidence ?? 'CHoCH/BOS on LTF needed'}`,
     '',
     `📈 TRADE FRAMEWORK:`,
     `   RR Target: ${pb.rr}`,
@@ -226,29 +247,34 @@ function sessionInfo(): string[] {
   ].filter(Boolean);
 }
 
-function sniper(arg: string, prices: Prices = {}): string[] {
+function sniper(arg: string, prices: Prices, scanData: { pair: string; scores: EXAScores }[]): string[] {
   const xau = prices['XAUUSD'];
+  const xauExa = scanData.find(r => r.pair === 'XAUUSD')?.scores;
+  const best = scanData.length ? scanData.reduce((a, b) => a.scores.composite > b.scores.composite ? a : b) : null;
   return [
     '════════════════════════════════════════════════════',
     '🎯 SNIPER SCAN — 85+ CONFLUENCE ONLY',
     '════════════════════════════════════════════════════',
     '',
-    '⚡ XAUUSD — 89/100 — ✅ CONFIRMED SNIPER SETUP',
-    `   4/4 EXA Locks | Win Rate: 72% | Live: ${fmt(xau, 2)} ${dir(xau)}`,
+    best && best.scores.composite >= 80
+      ? `⚡ ${best.pair} — ${best.scores.composite}/100 — ✅ CONFIRMED SNIPER SETUP`
+      : '⚡ No asset above 80 confluence — no sniper setup confirmed.',
+    best ? `   ${best.scores.locks.filter(Boolean).length}/4 EXA Locks | Win Rate: ${PLAYBOOK[best.pair]?.winRate ?? '?'}% | Live: ${fmt(prices[best.pair], 2)}` : '',
     '   All criteria met. Institutional fingerprint confirmed.',
     '   Entry: HTF OB + M15 CHoCH. Stop: below swept lows.',
     '',
-    arg && arg !== 'all' ? `   ${arg.toUpperCase()}: Below 85 threshold. Not a sniper setup.` : '   All other assets: below 85 threshold.',
+    arg && arg !== 'all' ? `   ${arg.toUpperCase()}: Checking...` : '',
     '',
-    '⏳ 1 sniper setup. Execute with precision. Do not force.',
+    '⏳ Execute with precision. Do not force.',
     '════════════════════════════════════════════════════',
-  ];
+  ].filter(Boolean);
 }
 
-function godMode(prices: Prices = {}): string[] {
+function godMode(prices: Prices, scanData: { pair: string; scores: EXAScores }[]): string[] {
   const dxy = prices['DXY'];
   const xau = prices['XAUUSD'];
   const s = getSession();
+  const best = scanData.length ? scanData.reduce((a, b) => a.scores.composite > b.scores.composite ? a : b) : null;
   return [
     '════════════════════════════════════════════════════',
     '👁️  GOD MODE — ALL FRAMEWORKS ENGAGED',
@@ -266,14 +292,12 @@ function godMode(prices: Prices = {}): string[] {
     `   ${s.strategy}`,
     '',
     '📊 MULTI-FRAMEWORK SYNTHESIS:',
-    '   Structure ......... HTF bullish, LTF consolidating',
-    '   Liquidity ......... Equal lows below — hunt incoming',
-    '   Smart Money ....... Accumulation phase detected',
+    best ? `   Best Setup ........ ${best.pair} ${best.scores.composite}/100 (${best.scores.bias})` : '   Best Setup ........ warming up',
     `   Correlation ....... DXY ${dxy ? fmt(dxy, 3) + ' ' + dir(dxy) : 'loading'} = ${dxy && dxy.changePct < 0 ? 'bearish = commodity/risk bid ✓' : 'check direction'}`,
     `   Session Timing .... ${s.name.includes('DEAD') ? 'Suboptimal — wait' : 'Optimal window ✓'}`,
     '   Psychology ........ State unknown — run /psychology',
     '',
-    `⚡ TOP PLAY: XAUUSD 89/100 | 4/4 LOCKS | 72% WR | ${fmt(xau, 2)} ${dir(xau)}`,
+    best ? `⚡ TOP PLAY: ${best.pair} ${best.scores.composite}/100 | ${best.scores.locks.filter(Boolean).length}/4 LOCKS | ${PLAYBOOK[best.pair]?.winRate ?? '?'}% WR | ${fmt(prices[best.pair], 2)}` : '',
     '',
     '🧠 INTELLIGENCE:',
     '   Retail positioned SHORT at equal lows.',
@@ -281,29 +305,31 @@ function godMode(prices: Prices = {}): string[] {
     '   Wait for the sweep. Enter the reversal.',
     '   That is the only play that matters right now.',
     '════════════════════════════════════════════════════',
-  ];
+  ].filter(Boolean);
 }
 
-function processCommand(raw: string, prices: Prices): { lines: string[]; type: LogEntry['type'] } {
+function processCommand(raw: string, prices: Prices, scanData: { pair: string; scores: EXAScores }[]): { lines: string[]; type: LogEntry['type'] } {
   const t = raw.trim();
   const l = t.toLowerCase();
 
   if (l === '/help' || l === 'help') return { lines: HELP_LINES, type: 'system' };
-  if (l === '/scan all' || l === 'scan all') return { lines: scanAll(prices), type: 'analysis' };
+  if (l === '/scan all' || l === 'scan all') return { lines: scanAll(prices, scanData), type: 'analysis' };
   if (l.startsWith('/scan ') || l.startsWith('scan ')) {
     const asset = t.split(' ').slice(1).join('');
-    return { lines: scanAsset(asset, prices), type: 'analysis' };
+    return { lines: scanAsset(asset, prices, scanData), type: 'analysis' };
   }
   if (l === '/bias' || l.includes("what's the market") || l.includes("market doing")) return { lines: bias(prices), type: 'analysis' };
   if (l === '/session' || l.includes('what session')) return { lines: sessionInfo(), type: 'analysis' };
   if (l.startsWith('/sniper') || l === 'sniper') {
     const arg = l.replace('/sniper', '').trim();
-    return { lines: sniper(arg, prices), type: 'analysis' };
+    return { lines: sniper(arg, prices, scanData), type: 'analysis' };
   }
-  if (l === '/god mode' || l === '/godmode' || l === 'god mode') return { lines: godMode(prices), type: 'analysis' };
+  if (l === '/god mode' || l === '/godmode' || l === 'god mode') return { lines: godMode(prices, scanData), type: 'analysis' };
   if (l === '/zen') return { lines: ['', '🧘 Waiting is a position. Patience is profitable.', '   The best trade is sometimes no trade.', '   Institutions wait days for perfect setups.', ''], type: 'system' };
   if (l.startsWith('/war room') || l.startsWith('war room')) {
     const asset = l.replace('/war room', '').replace('war room', '').trim().toUpperCase() || 'XAUUSD';
+    const exa = scanData.find(r => r.pair === asset)?.scores;
+    const lockCount = exa?.locks.filter(Boolean).length ?? 3;
     return {
       lines: [
         '════════════════════════════════════════════════════',
@@ -311,19 +337,21 @@ function processCommand(raw: string, prices: Prices): { lines: string[]; type: L
         '════════════════════════════════════════════════════',
         '',
         '🗺️  HTF CAMPAIGN (Weekly/Daily):',
-        '   Institutional campaign: BULLISH. Price in markup phase.',
-        '   Draw on liquidity: Previous weekly high.',
+        exa?.bias === 'BULLISH' ? '   Institutional campaign: BULLISH. Price in markup phase.' :
+        exa?.bias === 'BEARISH' ? '   Institutional campaign: BEARISH. Price in distribution phase.' :
+        '   Institutional campaign: NEUTRAL. Price consolidating.',
+        `   Draw on liquidity: ${exa?.liquidity ?? 50 > 60 ? 'Previous weekly high/low' : 'Vol-dependent target'}.`,
         '',
         '⚔️  ITF TACTICS (H4/H1):',
-        '   Phase: Retracement into H4 OB.',
+        `   Phase: ${exa?.momentum && exa.momentum > 30 ? 'Impulse' : exa?.momentum && exa.momentum < -30 ? 'Reversal' : 'Retracement'} into key zone.`,
         '   Tactical entry zone: H1 FVG fill + OB confluence.',
         '',
         '🎯 LTF EXECUTION (M15/M5):',
         '   Trigger: M15 CHoCH → M5 BOS confirmation.',
         '   Entry: First M5 candle close above CHoCH level.',
         '',
-        '🔐 AUTHORIZATION: 3/4 LOCKS — DO NOT ENTER YET.',
-        '   Awaiting Lock 4: LTF confirmation.',
+        `🔐 AUTHORIZATION: ${lockCount}/4 LOCKS — ${lockCount >= 4 ? 'FULLY AUTHORIZED' : lockCount >= 3 ? 'ALMOST — AWAITING LTF' : 'DO NOT ENTER YET'}.`,
+        `   Composite: ${exa?.composite ?? '--'}/100 | ${exa?.verdict ?? 'ANALYZING'}`,
         '════════════════════════════════════════════════════',
       ],
       type: 'analysis',
@@ -354,21 +382,29 @@ function processCommand(raw: string, prices: Prices): { lines: string[]; type: L
     };
   }
   if (l === '/conflict check' || l.includes('conflict')) {
+    const topAssets = scanData.filter(r => r.scores.bias !== 'NEUTRAL').slice(0, 5);
+    const conflicts = topAssets.filter(r => {
+      const dxy = prices['DXY'];
+      if (!dxy) return false;
+      return (r.pair !== 'DXY' && r.scores.bias === 'BULLISH' && dxy.changePct > 0.15) ||
+             (r.pair !== 'DXY' && r.scores.bias === 'BEARISH' && dxy.changePct < -0.15);
+    });
     return {
       lines: [
         '════════════════════════════════════════════════════',
         '⚠️  CONFLICT DETECTION REPORT',
         '════════════════════════════════════════════════════',
         '',
-        '🟢 NO CRITICAL CONFLICTS DETECTED',
+        conflicts.length === 0 ? '🟢 NO CRITICAL CONFLICTS DETECTED' : `🟡 ${conflicts.length} POTENTIAL CONFLICT(S)`,
         '',
-        '   XAUUSD long ↔ DXY bearish  — ALIGNED ✓',
-        '   GBPUSD long ↔ DXY bearish  — ALIGNED ✓',
-        '   NAS100 long ↔ Risk-On bias  — ALIGNED ✓',
+        ...topAssets.map(r => {
+          const dxy = prices['DXY'];
+          const aligned = r.pair === 'DXY' || !dxy || (r.scores.bias === 'BULLISH' && dxy.changePct < 0) || (r.scores.bias === 'BEARISH' && dxy.changePct > 0);
+          return `   ${r.pair} ${r.scores.bias} ↔ DXY — ${aligned ? 'ALIGNED ✓' : 'CONFLICT ⚠️'}`;
+        }),
         '',
-        '🟡 NOTE: XAUUSD + NAS100 both long = normally tension',
-        '   Exception: risk-on + inflation hedge can coexist.',
-        '   Monitor: DXY reversal would conflict both.',
+        '   DXY direction determines USD pair direction.',
+        '   Check DXY before entering any USD-denominated trade.',
         '════════════════════════════════════════════════════',
       ],
       type: 'analysis',
@@ -376,7 +412,7 @@ function processCommand(raw: string, prices: Prices): { lines: string[]; type: L
   }
   if (l === '/now' || l.includes("what's good") || l.includes('what should i trade')) {
     const s = getSession();
-    return { lines: [`⚡ ${s.icon} ${s.name} — ${s.strategy}`, '', ...scanAll(prices)], type: 'analysis' };
+    return { lines: [`⚡ ${s.icon} ${s.name} — ${s.strategy}`, '', ...scanAll(prices, scanData)], type: 'analysis' };
   }
   if (l === '/prices' || l === 'prices') {
     const lines = [
@@ -409,6 +445,7 @@ export const NexusTerminal = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { prices, fetchedAt, loading: pricesLoading, error: pricesError } = usePrices();
+  const scanData = useEXAScan(ASSETS);
 
   const push = (lines: string[], type: LogEntry['type']) => {
     const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -427,17 +464,16 @@ export const NexusTerminal = () => {
     ], 'success');
   }, []);
 
-  // Notify when prices load or error
   useEffect(() => {
     if (!pricesLoading && fetchedAt) {
       const count = Object.keys(prices).length;
       push([`📡 Live prices loaded: ${count}/11 assets | Updated ${new Date(fetchedAt).toLocaleTimeString('en-GB')}`], 'success');
     }
-  }, [fetchedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchedAt]);
 
   useEffect(() => {
     if (pricesError) push([`⚠️ Price feed error: ${pricesError} — commands still work with playbook data`], 'warning');
-  }, [pricesError]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pricesError]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -498,7 +534,7 @@ export const NexusTerminal = () => {
     setCmdHistory(prev => [cmd, ...prev.slice(0, 49)]);
     setHistIdx(-1);
     setInput('');
-    const { lines, type } = processCommand(cmd, prices);
+    const { lines, type } = processCommand(cmd, prices, scanData);
     if (type === 'error') {
       await callNexusAI(cmd);
     } else {

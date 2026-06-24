@@ -3,44 +3,79 @@ import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import settingsTexture from "@/assets/textures/real_earth_daymap.jpg";
 
 const PREFS_KEY = "warroom.prefs";
-const DEFAULTS = { risk: "1.0", maxDD: "5.0", session: "London+NY" };
+const THEME_KEY = "warroom.theme";
+type Theme = "dark" | "copper";
+
+const DEFAULTS = { risk: "1.0", maxDD: "5.0", session: "London+NY", notifications: true, soundAlerts: false };
 
 const SettingsScreen = () => {
   const [prefs, setPrefs] = useState(DEFAULTS);
+  const [theme, setTheme] = useState<Theme>("dark");
   const [saved, setSaved] = useState(false);
 
-  // Load saved preferences from this browser.
   useEffect(() => {
     try {
       const s = localStorage.getItem(PREFS_KEY);
       if (s) setPrefs({ ...DEFAULTS, ...JSON.parse(s) });
+      const t = localStorage.getItem(THEME_KEY);
+      if (t === "dark" || t === "copper") setTheme(t);
     } catch { /* ignore */ }
   }, []);
 
-  const set = (k: keyof typeof DEFAULTS, v: string) => {
+  useEffect(() => {
+    if (theme === "copper") {
+      document.documentElement.style.setProperty("--exa-accent", "#D48A3C");
+      document.documentElement.style.setProperty("--exa-accent-rgb", "212, 138, 60");
+    } else {
+      document.documentElement.style.setProperty("--exa-accent", "#ffdd00");
+      document.documentElement.style.setProperty("--exa-accent-rgb", "255, 221, 0");
+    }
+  }, [theme]);
+
+  const set = (k: keyof typeof DEFAULTS, v: string | boolean) => {
     setPrefs((p) => ({ ...p, [k]: v }));
     setSaved(false);
   };
+
   const save = () => {
     try {
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(THEME_KEY, theme);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch { /* ignore */ }
+  };
+
+  const exportData = () => {
+    try {
+      const data: Record<string, unknown> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("warroom.")) {
+          try { data[key] = JSON.parse(localStorage.getItem(key) ?? ""); } catch { data[key] = localStorage.getItem(key); }
+        }
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `warroom-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch { /* ignore */ }
   };
 
   return (
     <PlanetPageLayout
       texture={settingsTexture}
-      glowColor="#00ff88"
+      glowColor={theme === "copper" ? "#D48A3C" : "#00ff88"}
       bgColor="#030a18"
       screenName="SETTINGS"
       screenDesc="Your operating preferences · WARROOM is an intelligence layer, not a broker"
     >
       <div className="space-y-5">
-        {/* Honest banner — replaces the old fake Paper/Live trading toggle */}
         <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-2xl p-5">
-          <div className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1.5">📋 Intelligence layer — never auto-trades</div>
+          <div className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1.5">Intelligence layer — never auto-trades</div>
           <div className="text-[11px] text-white/45 font-mono leading-relaxed">
             WARROOM NEXUS analyses markets and hands you signals. It never places orders or touches capital —
             you execute every trade yourself on MT4/MT5/cTrader. The settings below are your personal rules and
@@ -48,29 +83,69 @@ const SettingsScreen = () => {
           </div>
         </div>
 
-        {/* Risk rules — persisted */}
+        {/* Theme */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">RISK RULES <span className="text-white/15 normal-case tracking-normal">— your discipline, applied when you execute</span></div>
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">THEME</div>
+          <div className="flex gap-3">
+            {(["dark", "copper"] as Theme[]).map(t => (
+              <button key={t} onClick={() => setTheme(t)}
+                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                  theme === t
+                    ? t === "copper" ? "bg-[#D48A3C]/15 border-[#D48A3C]/40 text-[#D48A3C]" : "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                    : "bg-white/[0.02] border-white/[0.06] text-white/30"
+                }`}>
+                {t === "dark" ? "🌑 DARK (emerald)" : "🟤 COPPER (EXA)"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Risk rules */}
+        <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">RISK RULES</div>
           <div className="grid grid-cols-2 gap-4">
             {([["Risk Per Trade (%)", "risk", "Max 2% recommended"], ["Max Daily Drawdown (%)", "maxDD", "Walk away at this level"]] as const).map(([l, k, hint]) => (
               <div key={k}>
                 <label className="text-[10px] text-white/30 uppercase font-mono mb-1.5 block">{l}</label>
-                <input value={prefs[k]} onChange={(e) => set(k, e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40 mb-1" />
+                <input value={prefs[k as keyof typeof DEFAULTS] as string} onChange={(e) => set(k as keyof typeof DEFAULTS, e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40 mb-1" />
                 <div className="text-[10px] text-white/20 font-mono">{hint}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Focus sessions — persisted */}
+        {/* Focus sessions */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
-          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">FOCUS SESSIONS <span className="text-white/15 normal-case tracking-normal">— when you watch the scan</span></div>
-          <select value={prefs.session} onChange={(e) => set("session", e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40">
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">FOCUS SESSIONS</div>
+          <select value={prefs.session} onChange={(e) => set("session", e.target.value)}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40">
             {["London", "NY", "London+NY", "Asian", "All Sessions"].map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
 
-        {/* AI engine — honest, server-managed (no fake user-editable key) */}
+        {/* Notifications */}
+        <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">NOTIFICATIONS</div>
+          <div className="space-y-3">
+            {[
+              ["Browser Alerts", "notifications", "Show browser notifications when setup is authorized"],
+              ["Sound Alerts", "soundAlerts", "Play a sound on high-confluence alerts"],
+            ].map(([l, k, hint]) => (
+              <label key={k} className="flex items-center justify-between bg-black/40 border border-white/[0.06] rounded-xl px-4 py-3 cursor-pointer">
+                <div>
+                  <div className="text-sm font-black text-white">{l}</div>
+                  <div className="text-[10px] text-white/30 font-mono">{hint}</div>
+                </div>
+                <input type="checkbox" checked={prefs[k as keyof typeof DEFAULTS] as boolean}
+                  onChange={(e) => set(k as keyof typeof DEFAULTS, e.target.checked)}
+                  className="w-4 h-4 rounded accent-emerald-500" />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* AI engine */}
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">AI ENGINE</div>
           <div className="flex items-center justify-between bg-black/40 border border-white/[0.06] rounded-xl px-4 py-3">
@@ -83,7 +158,19 @@ const SettingsScreen = () => {
           <div className="text-[10px] text-white/20 font-mono mt-2">The API key lives as a server secret — nothing to configure here.</div>
         </div>
 
-        <button onClick={save} className="w-full py-4 rounded-xl font-black uppercase tracking-[0.15em] text-sm transition-all hover:-translate-y-0.5 border" style={{ background: "rgba(0,255,136,0.08)", borderColor: "rgba(0,255,136,0.3)", color: "#00ff88" }}>
+        {/* Data export */}
+        <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+          <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">DATA</div>
+          <button onClick={exportData}
+            className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-[0.15em] border transition-all hover:-translate-y-0.5"
+            style={{ background: "rgba(168,85,247,0.08)", borderColor: "rgba(168,85,247,0.25)", color: "#a855f7" }}>
+            EXPORT ALL DATA (JSON)
+          </button>
+          <div className="text-[10px] text-white/20 font-mono mt-2">Downloads journal trades, alerts, preferences, and paper trades as a single JSON file.</div>
+        </div>
+
+        <button onClick={save} className="w-full py-4 rounded-xl font-black uppercase tracking-[0.15em] text-sm transition-all hover:-translate-y-0.5 border"
+          style={{ background: "rgba(0,255,136,0.08)", borderColor: "rgba(0,255,136,0.3)", color: "#00ff88" }}>
           {saved ? "✓ SAVED TO THIS BROWSER" : "SAVE PREFERENCES"}
         </button>
       </div>
