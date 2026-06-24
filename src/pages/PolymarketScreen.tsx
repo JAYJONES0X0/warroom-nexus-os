@@ -268,7 +268,8 @@ const PolymarketScreen = () => {
   const [watch, setWatch]       = useState<string[]>(getWatch);
   const [showArb, setShowArb]   = useState(false);
   const [showAll, setShowAll]   = useState(false);
-  const [showScanner, setShowScanner] = useState(true);
+  const [shownCount, setShownCount] = useState(9);
+  const [sortKey, setSortKey]   = useState<"move" | "volume" | "score">("move");
   const riskPct   = getRiskPct();
   const stats     = playStats(plays);
   const readStats = computeStats(record);
@@ -297,8 +298,8 @@ const PolymarketScreen = () => {
   const onWatch = (id: string) => setWatch(toggleWatch(id));
 
   const movers = useMemo(
-    () => [...markets].sort((a, b) => Math.abs(b.move24h ?? 0) - Math.abs(a.move24h ?? 0)).slice(0, 6),
-    [markets],
+    () => [...markets].sort((a, b) => Math.abs(b.move24h ?? 0) - Math.abs(a.move24h ?? 0)).slice(0, shownCount),
+    [markets, shownCount],
   );
   const activeMovers = markets.filter((m) => Math.abs((m.move24h ?? 0) * 100) >= 5).length;
   const watched = useMemo(() => markets.filter((m) => watch.includes(m.id)), [markets, watch]);
@@ -309,6 +310,14 @@ const PolymarketScreen = () => {
   const pnlColor  = stats.realizedPnl > 0 ? "#10b981" : stats.realizedPnl < 0 ? "#ef4444" : "rgba(255,255,255,0.6)";
   const liveArb   = eng.scanned?.live ?? 0;
   const heroFlow  = movers[0] ? flowColor(marketCopy(movers[0]).flow) : "#6b7280";
+
+  const sortedMarkets = useMemo(() => {
+    const sorted = [...markets];
+    if (sortKey === "move") sorted.sort((a, b) => Math.abs(b.move24h ?? 0) - Math.abs(a.move24h ?? 0));
+    else if (sortKey === "volume") sorted.sort((a, b) => b.volume24h - a.volume24h);
+    else sorted.sort((a, b) => b.score - a.score);
+    return sorted;
+  }, [markets, sortKey]);
 
   const topMovers = movers.slice(0, 3);
   const moverSummary = topMovers.map((m, i) =>
@@ -391,11 +400,8 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
             const scanLabel = eng.loading ? "SCANNING…" : eng.error ? "ERR" : eng.stale ? "STALE" : sc ? "OK" : "—";
             return (
               <div className="mb-5">
-                <button
-                  onClick={() => setShowScanner(s => !s)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] mb-1 transition-all"
-                  style={{ border: `1px solid ${scanColor}1a`, background: `${scanColor}05` }}
-                >
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] mb-1"
+                  style={{ border: `1px solid ${scanColor}1a`, background: `${scanColor}05` }}>
                   <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
                     style={{ color: scanColor, background: `${scanColor}18`, border: `1px solid ${scanColor}28` }}>
                     SCANNER
@@ -408,54 +414,51 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
                   <span className="text-[8px] font-black ml-1 px-1.5 py-0.5 rounded"
                     style={{ color: scanColor, background: `${scanColor}12` }}>{scanLabel}</span>
                   {edgeAge !== null && <span className="text-white/18 text-[8px] ml-auto mr-1">{edgeAge < 60 ? `${edgeAge}s` : `${Math.floor(edgeAge / 60)}m`} ago</span>}
-                  <span className="text-white/25">{showScanner ? "▾" : "▸"}</span>
-                </button>
-                {showScanner && (
-                  <div className="px-4 py-3 rounded-xl" style={{ border: `1px solid ${scanColor}12`, background: `${scanColor}03` }}>
-                    <div className="grid grid-cols-4 gap-x-4 gap-y-2.5 mb-3">
-                      {([
-                        ["Markets", markets.length, "#a855f7"],
-                        ["Events", sc?.events ?? "—", "#a855f7"],
-                        ["NegRisk", sc?.negRiskEvents ?? "—", "#a855f7"],
-                        ["Candidates", sc?.candidates ?? "—", "#a855f7"],
-                        ["Theoretical", sc?.theoretical ?? "—", "#6b7280"],
-                        ["Executable", sc?.executable ?? "—", "#38bdf8"],
-                        ["Live edges", sc?.live ?? "—", sc?.live ? "#10b981" : "#6b7280"],
-                        ["Rejected", sc?.rejected ?? "—", (sc?.rejected ?? 0) > 0 ? "#f59e0b" : "#6b7280"],
-                      ] as [string, number | string, string][]).map(([label, val, col]) => (
-                        <div key={label}>
-                          <div className="text-[7px] text-white/22 uppercase tracking-wider mb-0.5">{label}</div>
-                          <div className="text-[15px] font-black tabular-nums" style={{ color: col }}>{val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {rj && (sc?.rejected ?? 0) > 0 && (
-                      <div className="pt-2 border-t border-white/[0.05] mb-2">
-                        <div className="text-[7px] text-white/22 uppercase tracking-wider mb-1.5">Rejection breakdown</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {([
-                            ["Insuff. depth", rj.insufficientDepth, "#f59e0b"],
-                            ["Stale book",    rj.staleBook,         "#ef4444"],
-                            ["Augmented",     rj.augmented,         "#6b7280"],
-                            ["Theoretical",   rj.theoreticalOnly,   "#6b7280"],
-                          ] as [string, number, string][]).filter(([,n]) => n > 0).map(([label, n, col]) => (
-                            <span key={label} className="text-[8px] font-black px-2 py-0.5 rounded"
-                              style={{ color: col, background: `${col}10`, border: `1px solid ${col}22` }}>
-                              {label} · {n}
-                            </span>
-                          ))}
-                        </div>
+                </div>
+                <div className="px-4 py-3 rounded-xl" style={{ border: `1px solid ${scanColor}12`, background: `${scanColor}03` }}>
+                  <div className="grid grid-cols-4 gap-x-4 gap-y-2.5 mb-3">
+                    {([
+                      ["Markets", markets.length, "#a855f7"],
+                      ["Events", sc?.events ?? "—", "#a855f7"],
+                      ["NegRisk", sc?.negRiskEvents ?? "—", "#a855f7"],
+                      ["Candidates", sc?.candidates ?? "—", "#a855f7"],
+                      ["Theoretical", sc?.theoretical ?? "—", "#6b7280"],
+                      ["Executable", sc?.executable ?? "—", "#38bdf8"],
+                      ["Live edges", sc?.live ?? "—", sc?.live ? "#10b981" : "#6b7280"],
+                      ["Rejected", sc?.rejected ?? "—", (sc?.rejected ?? 0) > 0 ? "#f59e0b" : "#6b7280"],
+                    ] as [string, number | string, string][]).map(([label, val, col]) => (
+                      <div key={label}>
+                        <div className="text-[7px] text-white/22 uppercase tracking-wider mb-0.5">{label}</div>
+                        <div className="text-[15px] font-black tabular-nums" style={{ color: col }}>{val}</div>
                       </div>
-                    )}
-                    <div className="flex items-center gap-4 text-[8px] text-white/22">
-                      <span>Mode: <span className="text-white/45 font-black uppercase">{eng.dataMode ?? "—"}</span></span>
-                      {eng.stale && eng.lastGoodAt && (
-                        <span>Last good: <span className="text-amber-400/60">{Math.floor((Date.now() - eng.lastGoodAt) / 1000 / 60)}m ago</span></span>
-                      )}
-                      {eng.error && <span className="text-red-400/60">{eng.error}</span>}
-                    </div>
+                    ))}
                   </div>
-                )}
+                  {rj && (sc?.rejected ?? 0) > 0 && (
+                    <div className="pt-2 border-t border-white/[0.05] mb-2">
+                      <div className="text-[7px] text-white/22 uppercase tracking-wider mb-1.5">Rejection breakdown</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {([
+                          ["Insuff. depth", rj.insufficientDepth, "#f59e0b"],
+                          ["Stale book",    rj.staleBook,         "#ef4444"],
+                          ["Augmented",     rj.augmented,         "#6b7280"],
+                          ["Theoretical",   rj.theoreticalOnly,   "#6b7280"],
+                        ] as [string, number, string][]).filter(([,n]) => n > 0).map(([label, n, col]) => (
+                          <span key={label} className="text-[8px] font-black px-2 py-0.5 rounded"
+                            style={{ color: col, background: `${col}10`, border: `1px solid ${col}22` }}>
+                            {label} · {n}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4 text-[8px] text-white/22">
+                    <span>Mode: <span className="text-white/45 font-black uppercase">{eng.dataMode ?? "—"}</span></span>
+                    {eng.stale && eng.lastGoodAt && (
+                      <span>Last good: <span className="text-amber-400/60">{Math.floor((Date.now() - eng.lastGoodAt) / 1000 / 60)}m ago</span></span>
+                    )}
+                    {eng.error && <span className="text-red-400/60">{eng.error}</span>}
+                  </div>
+                </div>
               </div>
             );
           })()}
