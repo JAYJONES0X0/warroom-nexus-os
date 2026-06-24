@@ -93,7 +93,7 @@ function RiskScreen() {
       screenDesc="Position sizing · Drawdown limits · Kelly criterion · Per-asset exposure"
     >
       {/* Account Configuration */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 mb-6">
+      <div className="card-surface p-6 mb-6">
         <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">Account Configuration</div>
         <div className="grid grid-cols-2 gap-4">
           {[
@@ -113,18 +113,18 @@ function RiskScreen() {
       </div>
 
       {/* Position Sizing Calculator */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 mb-6">
+      <div className="card-surface p-6 mb-6">
         <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">Position Sizing</div>
         <div className="grid grid-cols-3 gap-3 mb-3">
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
+          <div className="card-surface p-4 text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Risk per Trade ($)</div>
             <div className="text-xl font-black text-orange-400 tabular-nums">${(prefs.accountSize * prefs.riskPerTrade / 100).toFixed(0)}</div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
+          <div className="card-surface p-4 text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Daily Loss Limit ($)</div>
             <div className="text-xl font-black text-red-400 tabular-nums">${(prefs.accountSize * prefs.maxDailyDD / 100).toFixed(0)}</div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
+          <div className="card-surface p-4 text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Pip Value ($/pip)</div>
             <div className="text-xl font-black text-emerald-400 tabular-nums">${pipValue.toFixed(0)}</div>
           </div>
@@ -137,7 +137,7 @@ function RiskScreen() {
       </div>
 
       {/* Kelly Criterion Sizing by Asset */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 mb-6">
+      <div className="card-surface p-6 mb-6">
         <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">Kelly Sizing <span className="text-white/15 normal-case tracking-normal">— backtested edge per asset</span></div>
         <div className="space-y-2">
           {ALL_ASSETS.map(pair => (
@@ -147,16 +147,16 @@ function RiskScreen() {
       </div>
 
       {/* Max Drawdown Tracker — manual */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+      <div className="card-surface p-6">
         <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-2">Drawdown Tracker</div>
         <div className="text-[10px] text-white/25 font-mono mb-4">Log your current drawdown manually. This helps you respect the max limit above.</div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl bg-red-500/[0.03] border border-red-500/10 text-center">
+          <div className="card-surface p-4 rounded-xl bg-red-500/[0.03] border border-red-500/10 text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Current Drawdown</div>
             <div className="text-lg font-black text-red-400 tabular-nums">--</div>
             <div className="text-[10px] text-white/20 font-mono mt-1">Enter in settings</div>
           </div>
-          <div className="p-4 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 text-center">
+          <div className="card-surface p-4 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 text-center">
             <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Max Allowed</div>
             <div className="text-lg font-black text-emerald-400 tabular-nums">{prefs.maxDailyDD}%</div>
             <div className="text-[10px] text-white/20 font-mono mt-1">${(prefs.accountSize * prefs.maxDailyDD / 100).toFixed(0)}</div>

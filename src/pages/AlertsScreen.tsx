@@ -138,15 +138,15 @@ const AlertsScreen = () => {
     >
       {/* Summary strip */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+        <div className="card-surface p-4 text-center">
           <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Watching</div>
           <div className="text-xl font-black text-emerald-400">{watching}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+        <div className="card-surface p-4 text-center">
           <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Triggered</div>
           <div className="text-xl font-black text-orange-400">{triggered}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+        <div className="card-surface p-4 text-center">
           <div className="text-[9px] text-white/25 uppercase font-mono mb-1">Total</div>
           <div className="text-xl font-black text-white">{alerts.length}</div>
         </div>
@@ -162,7 +162,7 @@ const AlertsScreen = () => {
 
       {/* New Alert form */}
       {showForm && (
-        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 mb-4">
+        <div className="card-surface p-5 mb-4">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-3">NEW ALERT RULE</div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
@@ -223,7 +223,7 @@ const AlertsScreen = () => {
       {/* Alert list */}
       <div className="space-y-2.5">
         {alerts.map((a) => (
-          <div key={a.id} className="flex items-center justify-between p-5 rounded-xl border transition-all" style={{
+          <div key={a.id} className="flex items-center justify-between p-5 rounded-xl border transition-all card-surface" style={{
             background: a.status === "TRIGGERED" ? "rgba(255,136,0,0.07)" : a.status === "WATCHING" ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.01)",
             borderColor: a.status === "TRIGGERED" ? "rgba(255,136,0,0.3)" : a.status === "WATCHING" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
             opacity: a.status === "DISMISSED" ? 0.45 : 1,

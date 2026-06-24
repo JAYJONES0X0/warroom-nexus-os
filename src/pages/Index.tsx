@@ -95,12 +95,9 @@ const Index = () => {
 
       {/* ─ Module index panel ───────────────────────────────────────────────── */}
       <div
-        className="fixed right-4 top-1/2 -translate-y-1/2 z-[400]"
+        className="fixed right-4 top-1/2 -translate-y-1/2 z-[400] card-surface"
         style={{
-          background: "rgba(0,1,6,0.82)",
-          border: "1px solid rgba(255,255,255,0.07)",
           backdropFilter: "blur(12px)",
-          borderRadius: "12px",
           padding: "14px 16px",
           minWidth: "158px",
         }}
@@ -144,8 +141,7 @@ const Index = () => {
         style={{ pointerEvents: "none" }}
       >
         <div
-          className="inline-block text-[9px] text-white/22 leading-relaxed px-4 py-2 rounded-lg"
-          style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}
+          className="inline-block text-[9px] text-white/22 leading-relaxed px-4 py-2 rounded-lg card-surface"
         >
           Drag to rotate · Scroll to zoom · Click a planet to enter its module
         </div>

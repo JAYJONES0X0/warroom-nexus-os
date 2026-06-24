@@ -187,10 +187,8 @@ const CompactCard = ({ m, watched, onWatch, onTake }: {
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl overflow-hidden card-surface-accent"
       style={{
-        background: "rgba(255,255,255,0.022)",
-        border: `1px solid rgba(255,255,255,0.07)`,
         borderLeft: `3px solid ${col}55`,
       }}
     >
@@ -246,7 +244,7 @@ const ArbRow = ({ e }: { e: ArbEdge }) => {
   const live = e.status === "LIVE_EDGE" || e.status === "EXECUTABLE_EDGE";
   const col = live ? "#10b981" : e.status === "INSUFFICIENT_DEPTH" || e.status === "STALE_DATA" ? "#f59e0b" : "#a855f7";
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.04] bg-white/[0.015] text-[10px] font-mono">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg card-surface text-[10px] font-mono">
       <span className="text-[8px] font-black px-1.5 py-0.5 rounded shrink-0" style={{ color: col, background: `${col}14` }}>
         {e.status.replace("_", " ")}
       </span>
@@ -400,7 +398,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
             const scanLabel = eng.loading ? "SCANNING…" : eng.error ? "ERR" : eng.stale ? "STALE" : sc ? "OK" : "—";
             return (
               <div className="mb-5">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] mb-1"
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] mb-1 card-surface"
                   style={{ border: `1px solid ${scanColor}1a`, background: `${scanColor}05` }}>
                   <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
                     style={{ color: scanColor, background: `${scanColor}18`, border: `1px solid ${scanColor}28` }}>
@@ -415,7 +413,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
                     style={{ color: scanColor, background: `${scanColor}12` }}>{scanLabel}</span>
                   {edgeAge !== null && <span className="text-white/18 text-[8px] ml-auto mr-1">{edgeAge < 60 ? `${edgeAge}s` : `${Math.floor(edgeAge / 60)}m`} ago</span>}
                 </div>
-                <div className="px-4 py-3 rounded-xl" style={{ border: `1px solid ${scanColor}12`, background: `${scanColor}03` }}>
+                <div className="px-4 py-3 rounded-xl card-surface" style={{ border: `1px solid ${scanColor}12`, background: `${scanColor}03` }}>
                   <div className="grid grid-cols-4 gap-x-4 gap-y-2.5 mb-3">
                     {([
                       ["Markets", markets.length, "#a855f7"],
@@ -476,8 +474,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           </div>
 
           {movers.length === 0 ? (
-            <div className="text-[11px] text-white/22 py-12 text-center rounded-2xl border"
-              style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}>
+            <div className="text-[11px] text-white/22 py-12 text-center rounded-2xl card-surface">
               {loading ? "Reading the board…" : "No market data right now."}
             </div>
           ) : (
@@ -496,8 +493,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           {/* ── Mechanical arb strip ─────────────────────────────── */}
           <button
             onClick={() => setShowArb((s) => !s)}
-            className="w-full mt-5 flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] transition-all"
-            style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.012)" }}
+            className="w-full mt-5 flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] transition-all card-surface"
           >
             <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
               style={{ color: liveArb > 0 ? "#10b981" : "#6b7280", background: liveArb > 0 ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.04)" }}>
@@ -524,8 +520,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
                   const pts = Math.round((m.move24h ?? 0) * 100);
                   const col = flowColor(marketCopy(m).flow);
                   return (
-                    <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px]"
-                      style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.018)" }}>
+                    <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] card-surface">
                       <button onClick={() => onWatch(m.id)} className="text-amber-400 text-sm leading-none">★</button>
                       <span className="text-white/55 truncate flex-1">{m.question}</span>
                       <span className="tabular-nums font-black" style={{ color: col }}>{pts > 0 ? "+" : ""}{pts}¢</span>
@@ -540,17 +535,15 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           {/* ── Plays ────────────────────────────────────────────── */}
           <div className="text-[10px] uppercase tracking-[0.2em] text-white/35 mt-7 mb-2">Plays · Receipts</div>
           {plays.length === 0 ? (
-            <div className="text-[11px] text-white/22 py-6 text-center rounded-2xl"
-              style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.012)" }}>
+            <div className="text-[11px] text-white/22 py-6 text-center rounded-2xl card-surface">
               No plays yet — take one above.
             </div>
           ) : (
             <div className="space-y-1">
               {openPlays.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px]"
-                  style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.018)" }}>
-                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
-                    style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>OPEN</span>
+                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] card-surface">
+                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
+                      style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>OPEN</span>
                   <span className="text-white/55 truncate flex-1">{p.question}</span>
                   <span className="text-white/35">{p.side} @ {cents(p.entryPrice)}</span>
                   <span className="text-white/65 font-black">{money(p.stake)}</span>
@@ -559,7 +552,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
               {donePlays.map((p) => {
                 const won = p.resolved === "WON"; const c = won ? "#10b981" : "#ef4444";
                 return (
-                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px]"
+                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] card-surface"
                     style={{ border: `1px solid ${c}20`, background: `${c}08` }}>
                     <span className="font-black" style={{ color: c }}>{won ? "✓" : "✗"}</span>
                     <span className="text-white/50 truncate flex-1">{p.question}</span>
@@ -579,8 +572,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           {showAll && (
             <div className="space-y-1">
               {[...markets].sort((a, b) => b.score - a.score).map((m) => (
-                <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px]"
-                  style={{ border: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.012)" }}>
+                <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] card-surface">
                   <button onClick={() => onWatch(m.id)} className="text-sm leading-none shrink-0"
                     style={{ color: watch.includes(m.id) ? "#fbbf24" : "rgba(255,255,255,0.2)" }}>
                     {watch.includes(m.id) ? "★" : "☆"}
