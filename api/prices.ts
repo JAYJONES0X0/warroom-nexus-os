@@ -91,6 +91,14 @@ async function fetchYahoo(): Promise<PriceResult> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // ws-key sub-route — merged here to stay under Vercel Hobby 12-fn limit
+  if (req.url?.includes('mode=ws-key')) {
+    const key = process.env.TWELVEDATA_API_KEY ?? null;
+    res.setHeader('Cache-Control', 's-maxage=3600');
+    return res.status(200).json({ key, hasKey: !!key });
+  }
+
   // 5s server cache — 6× faster than Yahoo 30s
   res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=10');
 

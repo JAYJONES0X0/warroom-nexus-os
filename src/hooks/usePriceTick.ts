@@ -63,7 +63,7 @@ export function usePriceTick(symbol: string): TickData | null {
     const init = async () => {
       if (!keyRef.current) {
         try {
-          const res = await fetch('/api/ws-key');
+          const res = await fetch('/api/prices?mode=ws-key');
           const data = await res.json();
           if (data.key) keyRef.current = data.key;
         } catch { /* no key */ }
