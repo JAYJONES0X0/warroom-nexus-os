@@ -203,6 +203,15 @@ const CommandScreen = () => {
     });
   }, [exa, updateConfluence, updateSetup]);
 
+  // Auto-wire EXA locks → structure / correlation gates
+  // Lock[0] = structural clarity (technical >= 55). Lock[3] = correlation confirmed.
+  // Only auto-SET — never auto-clear. Cleared on asset change via setAsset().
+  useEffect(() => {
+    if (!state.liveQuote || state.liveQuote.stale) return;
+    if (exa.locks[0] && !state.structureContext) setStructureReady(true);
+    if (exa.locks[3] && !state.correlationState) setCorrelationReady(true);
+  }, [exa.locks, state.liveQuote, state.structureContext, state.correlationState, setStructureReady, setCorrelationReady]);
+
   const decision = useMemo(() => evaluateCommand(state), [state]);
   const asset = getAssetMeta(state.selectedAsset);
   const style = statusStyle[decision.command] ?? statusStyle.MISSING_DATA;

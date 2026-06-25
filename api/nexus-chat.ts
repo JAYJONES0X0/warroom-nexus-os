@@ -39,6 +39,101 @@ OUTPUT FORMAT RULES:
 
 CURRENT LIVE PRICES will be injected per request. Use them in your analysis.`;
 
+interface Provider {
+  name: string;
+  url: string;
+  authHeader: string;
+  model: string;
+}
+
+function buildProviders(): Provider[] {
+  const groqKey = process.env.GROQ_API_KEY;
+  const orKey = process.env.OPENROUTER_API_KEY;
+  const chain: Provider[] = [];
+
+  if (groqKey) chain.push({
+    name: 'groq',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    authHeader: `Bearer ${groqKey}`,
+    model: 'llama-3.3-70b-versatile',
+  });
+
+  if (orKey) {
+    chain.push({
+      name: 'openrouter-gemini',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authHeader: `Bearer ${orKey}`,
+      model: 'google/gemini-2.5-flash',
+    });
+    chain.push({
+      name: 'openrouter-deepseek',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authHeader: `Bearer ${orKey}`,
+      model: 'deepseek/deepseek-r1-0528',
+    });
+  }
+
+  return chain;
+}
+
+async function tryProvider(
+  provider: Provider,
+  messages: { role: string; content: string }[],
+): Promise<Response | null> {
+  try {
+    const headers: Record<string, string> = {
+      'Authorization': provider.authHeader,
+      'Content-Type': 'application/json',
+    };
+    if (provider.name.startsWith('openrouter')) {
+      headers['HTTP-Referer'] = 'https://cosmic-warroom-main.vercel.app';
+      headers['X-Title'] = 'WARROOM NEXUS';
+    }
+
+    const res = await fetch(provider.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: provider.model,
+        messages,
+        stream: true,
+        temperature: 0.3,
+        max_tokens: 800,
+      }),
+    });
+
+    if (res.ok) return res;
+    // 429 = rate limited, 5xx = provider error → try next
+    const status = res.status;
+    if (status === 429 || status >= 500) return null;
+    // 4xx client error (bad key etc) — log but keep trying
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function streamResponse(providerRes: Response, res: VercelResponse) {
+  const reader = providerRes.body?.getReader();
+  if (!reader) return;
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value);
+    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+    for (const line of lines) {
+      const data = line.slice(6);
+      if (data === '[DONE]') { res.write('data: [DONE]\n\n'); return; }
+      try {
+        const json = JSON.parse(data);
+        const token = json.choices?.[0]?.delta?.content ?? '';
+        if (token) res.write(`data: ${JSON.stringify({ token })}\n\n`);
+      } catch { /* skip malformed chunk */ }
+    }
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -47,10 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sessionName = req.body?.sessionName;
   if (!command) return res.status(400).json({ error: 'command required' });
 
-  const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) return res.status(500).json({ error: 'GROQ_API_KEY not configured' });
+  const providers = buildProviders();
+  if (providers.length === 0) return res.status(500).json({ error: 'No AI provider keys configured' });
 
-  // Build context with live prices
   const priceContext = prices && Object.keys(prices).length > 0
     ? `\nLIVE PRICES RIGHT NOW:\n${Object.entries(prices).map(([k, v]: [string, any]) =>
         `${k}: ${v.price?.toFixed?.(k === 'NAS100' || k === 'SPX' || k === 'BTCUSD' ? 0 : k === 'XAUUSD' ? 2 : 4)} (${v.changePct >= 0 ? '+' : ''}${v.changePct?.toFixed?.(2)}%)`
@@ -58,59 +152,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : '';
 
   const userMessage = `${priceContext}\nSession: ${sessionName || 'Unknown'}\n\nUser command: ${command}`;
+  const messages = [
+    { role: 'system', content: WARROOM_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ];
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  try {
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: WARROOM_SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-        stream: true,
-        temperature: 0.3,
-        max_tokens: 800,
-      }),
-    });
-
-    if (!groqRes.ok) {
-      const err = await groqRes.text();
-      res.write(`data: ${JSON.stringify({ error: err })}\n\n`);
+  for (const provider of providers) {
+    const providerRes = await tryProvider(provider, messages);
+    if (!providerRes) continue;
+    try {
+      await streamResponse(providerRes, res);
+      res.end();
+      return;
+    } catch (e) {
+      // Stream failed mid-way — can't retry, just end
+      res.write(`data: ${JSON.stringify({ error: `Stream error on ${provider.name}: ${String(e)}` })}\n\n`);
       res.end();
       return;
     }
-
-    const reader = groqRes.body?.getReader();
-    if (!reader) { res.end(); return; }
-
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-      for (const line of lines) {
-        const data = line.slice(6);
-        if (data === '[DONE]') { res.write('data: [DONE]\n\n'); break; }
-        try {
-          const json = JSON.parse(data);
-          const token = json.choices?.[0]?.delta?.content ?? '';
-          if (token) res.write(`data: ${JSON.stringify({ token })}\n\n`);
-        } catch { /* skip malformed */ }
-      }
-    }
-  } catch (e) {
-    res.write(`data: ${JSON.stringify({ error: String(e) })}\n\n`);
   }
+
+  // All providers exhausted
+  res.write(`data: ${JSON.stringify({ error: 'All providers unavailable. Check GROQ_API_KEY / OPENROUTER_API_KEY.' })}\n\n`);
   res.end();
 }
