@@ -93,7 +93,7 @@ const MorningBrief = () => {
           <div className="p-3">
             <div className="flex items-center gap-1.5 mb-2">
               <div className="w-1 h-1 rounded-full bg-purple-400" />
-              <span className="text-[7px] uppercase tracking-[0.2em] text-purple-400/70 font-black">
+              <span className="text-[8px] uppercase tracking-[0.2em] text-purple-400/70 font-black">
                 Top Poly Markets
               </span>
             </div>
@@ -117,7 +117,7 @@ const MorningBrief = () => {
             )}
             <button
               onClick={() => navigate("/polymarket")}
-              className="mt-2 text-[7px] font-black uppercase tracking-wider text-purple-400/50 hover:text-purple-400 transition-colors"
+              className="mt-2 text-[8px] font-black uppercase tracking-wider text-purple-400/50 hover:text-purple-400 transition-colors"
             >
               Open Polymarket →
             </button>
@@ -127,7 +127,7 @@ const MorningBrief = () => {
           <div className="p-3">
             <div className="flex items-center gap-1.5 mb-2">
               <div className="w-1 h-1 rounded-full bg-amber-400" />
-              <span className="text-[7px] uppercase tracking-[0.2em] text-amber-400/70 font-black">
+              <span className="text-[8px] uppercase tracking-[0.2em] text-amber-400/70 font-black">
                 Today's Events
               </span>
             </div>
@@ -138,7 +138,7 @@ const MorningBrief = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <div className="w-1 h-1 rounded-full" style={{ background: edgeColor }} />
-                  <span className="text-[7px] uppercase tracking-[0.15em] text-white/30 font-black">
+                  <span className="text-[8px] uppercase tracking-[0.15em] text-white/30 font-black">
                     Arb Scan
                   </span>
                 </div>
@@ -147,7 +147,7 @@ const MorningBrief = () => {
                 </span>
               </div>
               {edges.scanned && (
-                <div className="text-[7px] text-white/20 font-mono mt-0.5">
+                <div className="text-[8px] text-white/20 font-mono mt-0.5">
                   {edges.scanned.candidates} candidates · {edges.scanned.executable} executable
                 </div>
               )}
@@ -158,7 +158,7 @@ const MorningBrief = () => {
           <div className="p-3">
             <div className="flex items-center gap-1.5 mb-2">
               <div className="w-1 h-1 rounded-full bg-emerald-400" />
-              <span className="text-[7px] uppercase tracking-[0.2em] text-emerald-400/70 font-black">
+              <span className="text-[8px] uppercase tracking-[0.2em] text-emerald-400/70 font-black">
                 Price Snapshot
               </span>
             </div>
@@ -187,12 +187,12 @@ const MorningBrief = () => {
             <div className="mt-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1 h-1 rounded-full bg-sky-400" />
-                <span className="text-[7px] uppercase tracking-[0.15em] text-sky-400/70 font-black">
+                <span className="text-[8px] uppercase tracking-[0.15em] text-sky-400/70 font-black">
                   Top Setups
                 </span>
               </div>
               {topSetups.length === 0 ? (
-                <div className="text-[7px] text-white/20 font-mono">No setups — conditions denied</div>
+                <div className="text-[8px] text-white/20 font-mono">No setups — conditions denied</div>
               ) : (
                 <div className="space-y-1">
                   {topSetups.map((r) => {
@@ -232,14 +232,14 @@ const MorningBrief = () => {
             <div className="mt-2 pt-2 border-t flex gap-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <button
                 onClick={() => navigate("/")}
-                className="flex-1 py-1 rounded text-[7px] font-black uppercase tracking-wider border transition-all"
+                className="flex-1 py-1 rounded text-[8px] font-black uppercase tracking-wider border transition-all"
                 style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.06)" }}
               >
                 Open Command
               </button>
               <button
                 onClick={() => navigate("/markets")}
-                className="flex-1 py-1 rounded text-[7px] font-black uppercase tracking-wider border transition-all"
+                className="flex-1 py-1 rounded text-[8px] font-black uppercase tracking-wider border transition-all"
                 style={{ color: "#38bdf8", borderColor: "rgba(56,189,248,0.2)", background: "rgba(56,189,248,0.05)" }}
               >
                 Open Markets

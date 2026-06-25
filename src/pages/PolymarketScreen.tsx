@@ -199,13 +199,13 @@ const CompactCard = ({ m, watched, onWatch, onTake }: {
             <div className="font-black tabular-nums leading-none" style={{ fontSize: "1.6rem", color: col }}>
               {pts > 0 ? "+" : ""}{pts}¢
             </div>
-            <div className="text-[7px] text-white/22 uppercase tracking-wider mt-0.5">24h</div>
+            <div className="text-[8px] text-white/22 uppercase tracking-wider mt-0.5">24h</div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded"
                 style={{ color: col, background: `${col}14` }}>{flowLabel(c.flow)}</span>
-              <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded"
+              <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded"
                 style={{ color: CATEGORY_COLOR[c.category], background: `${CATEGORY_COLOR[c.category]}12` }}>
                 {c.category}
               </span>
@@ -426,14 +426,14 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
                       ["Rejected", sc?.rejected ?? "—", (sc?.rejected ?? 0) > 0 ? "#f59e0b" : "#6b7280"],
                     ] as [string, number | string, string][]).map(([label, val, col]) => (
                       <div key={label}>
-                        <div className="text-[7px] text-white/22 uppercase tracking-wider mb-0.5">{label}</div>
+                        <div className="text-[8px] text-white/22 uppercase tracking-wider mb-0.5">{label}</div>
                         <div className="text-[15px] font-black tabular-nums" style={{ color: col }}>{val}</div>
                       </div>
                     ))}
                   </div>
                   {rj && (sc?.rejected ?? 0) > 0 && (
                     <div className="pt-2 border-t border-white/[0.05] mb-2">
-                      <div className="text-[7px] text-white/22 uppercase tracking-wider mb-1.5">Rejection breakdown</div>
+                      <div className="text-[8px] text-white/22 uppercase tracking-wider mb-1.5">Rejection breakdown</div>
                       <div className="flex flex-wrap gap-1.5">
                         {([
                           ["Insuff. depth", rj.insufficientDepth, "#f59e0b"],
@@ -608,7 +608,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           {/* Macro Context */}
           <div className="px-3.5 py-2.5 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             <div className="text-[8px] text-violet-400/55 uppercase tracking-wider font-black">Macro Context</div>
-            <div className="text-[7.5px] text-white/18 mt-0.5">live indicators · 60s refresh</div>
+            <div className="text-[8px] text-white/18 mt-0.5">live indicators · 60s refresh</div>
           </div>
           <div className="px-3 py-3 shrink-0 overflow-y-auto" style={{ maxHeight: "290px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             <MacroContextPanel />
@@ -617,7 +617,7 @@ Right now: ${activeMovers} markets moved >5c in 24h. Mechanical arb live: ${live
           {/* Agent */}
           <div className="px-3.5 py-2.5 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             <div className="text-[8px] text-violet-400/55 uppercase tracking-wider font-black">NEXUS-P AGENT</div>
-            <div className="text-[7.5px] text-white/18 mt-0.5">reads top movers · ask before you stake</div>
+            <div className="text-[8px] text-white/18 mt-0.5">reads top movers · ask before you stake</div>
           </div>
           <div className="flex-1 overflow-hidden">
             <ScreenAgent

@@ -168,7 +168,7 @@ const JournalScreen = () => {
               ["Timeframe", draft.timeframe],
             ].map(([l, v]) => (
               <div key={l} className="card-surface p-2">
-                <div className="text-[7px] text-white/25 uppercase tracking-wider">{l}</div>
+                <div className="text-[8px] text-white/25 uppercase tracking-wider">{l}</div>
                 <div className="text-[10px] font-black text-white mt-0.5">{v}</div>
               </div>
             ))}
@@ -306,7 +306,7 @@ const JournalScreen = () => {
                   )}
                   {isNote && <span className="text-[10px] text-white/25 font-mono italic">quick note</span>}
                   {e.source && e.source !== "manual" && (
-                    <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider"
+                    <span className="text-[8px] font-black px-1 py-0.5 rounded uppercase tracking-wider"
                       style={{ color: "#38bdf8", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.2)" }}>
                       {e.source}
                     </span>

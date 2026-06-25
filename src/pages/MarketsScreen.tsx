@@ -86,7 +86,7 @@ const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
           <span className="relative text-right text-white/30">{(parseFloat(b.size) * 1.4).toFixed(1)}</span>
         </div>
       ))}
-      <div className="mt-1.5 px-1 text-[7.5px] text-white/15 font-mono tracking-wide">
+      <div className="mt-1.5 px-1 text-[8px] text-white/15 font-mono tracking-wide">
         DEPTH SIMULATED · broker connection required
       </div>
     </div>

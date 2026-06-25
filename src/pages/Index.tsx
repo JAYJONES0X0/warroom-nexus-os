@@ -117,7 +117,7 @@ const Index = () => {
                 <span className="text-[10px] font-black uppercase tracking-wide text-white/80">{key}</span>
               </div>
               <span
-                className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0"
+                className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0"
                 style={{
                   color: STATUS_COLOR[mod.status],
                   background: `${STATUS_COLOR[mod.status]}18`,
@@ -130,7 +130,7 @@ const Index = () => {
           ))}
         </div>
         <div className="mt-3 pt-3 border-t border-white/[0.06]">
-          <div className="text-[7.5px] text-white/22 leading-relaxed">
+          <div className="text-[8px] text-white/22 leading-relaxed">
             Click any planet or row<br />to enter its module
           </div>
         </div>
