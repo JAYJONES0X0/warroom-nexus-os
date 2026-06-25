@@ -577,6 +577,33 @@ const CommandScreen = () => {
                   <div className="mt-3 text-[11px] leading-relaxed max-w-[300px]" style={{ color: `${style.fg}75` }}>
                     {commandDirective}
                   </div>
+                  {decision.command === "MISSING_DATA" && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {!state.liveQuote && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black"
+                          style={{ borderColor: "rgba(167,139,250,0.2)", background: "rgba(167,139,250,0.07)", color: "rgba(167,139,250,0.8)" }}>
+                          <div className="h-1.5 w-1.5 rounded-full animate-pulse bg-violet-400 shrink-0" />
+                          {loading ? "FETCHING PRICE..." : "PRICE FEED OFFLINE"}
+                        </div>
+                      )}
+                      {!state.structureContext && (
+                        <button
+                          onClick={() => setStructureReady(true)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black transition-all"
+                          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.65)" }}>
+                          MARK SMC READY →
+                        </button>
+                      )}
+                      {!state.correlationState && (
+                        <button
+                          onClick={() => setCorrelationReady(true)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black transition-all"
+                          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.65)" }}>
+                          MARK DXY READY →
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Live price */}
@@ -1030,6 +1057,28 @@ const CommandScreen = () => {
         {/* ── RIGHT COLUMN ──────────────────────────────────────── */}
         <aside className="space-y-3">
 
+          {/* NEXUS-C — primary element, top of right rail */}
+          <section className="glass-card glass-card-green rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: 520 }}>
+            <div className="px-4 pt-3 pb-2 border-b border-white/[0.04] shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">NEXUS-C</div>
+                  <div className="text-[8px] text-white/25 mt-0.5">Command analyst · live context · Groq</div>
+                </div>
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+            </div>
+            <div className="flex-1" style={{ minHeight: 472 }}>
+              <ScreenAgent
+                agentId="NEXUS-C"
+                agentRole="command analyst"
+                glowColor="#10b981"
+                systemContext={nexusCContext}
+                autoPrompt={`Give me the current WARROOM READ for ${asset.label}.`}
+              />
+            </div>
+          </section>
+
           {/* EXA Operator Read */}
           <section className="glass-card glass-card-purple rounded-2xl p-4 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, #a855f740, transparent)" }} />
@@ -1068,23 +1117,6 @@ const CommandScreen = () => {
                 ))}
               </div>
             )}
-          </section>
-
-          {/* NEXUS-C */}
-          <section className="glass-card glass-card-green rounded-2xl overflow-hidden" style={{ height: 270 }}>
-            <div className="px-4 pt-3 pb-2 border-b border-white/[0.04]">
-              <div className="text-[9px] uppercase tracking-[0.2em] text-emerald-400/75">NEXUS-C · Command Analyst</div>
-              <div className="text-[8px] text-white/18 mt-0.5">context-bound · WARROOM READ format</div>
-            </div>
-            <div style={{ height: 222 }}>
-              <ScreenAgent
-                agentId="NEXUS-C"
-                agentRole="command analyst"
-                glowColor="#10b981"
-                systemContext={nexusCContext}
-                autoPrompt={`Give me the current WARROOM READ for ${asset.label}.`}
-              />
-            </div>
           </section>
 
           {/* Session Intel */}

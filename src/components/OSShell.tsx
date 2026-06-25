@@ -5,7 +5,7 @@ import { useWarroom } from "@/context/WarroomStateContext";
 const CORE_MODULES = [
   { key: "command",    abbr: "CMD", route: "/",             color: "#ef4444", status: "LIVE"     },
   { key: "markets",    abbr: "MKT", route: "/markets",      color: "#38bdf8", status: "BUILDING" },
-  { key: "intel",      abbr: "INT", route: "/intelligence", color: "#06b6d4", status: "FROZEN"   },
+  { key: "intel",      abbr: "INT", route: "/intelligence", color: "#06b6d4", status: "BUILDING" },
   { key: "polymarket", abbr: "PLY", route: "/polymarket",   color: "#a855f7", status: "BUILDING" },
   { key: "journal",    abbr: "JRN", route: "/journal",      color: "#10b981", status: "FROZEN"   },
   { key: "risk",       abbr: "RSK", route: "/risk",         color: "#f97316", status: "FROZEN"   },

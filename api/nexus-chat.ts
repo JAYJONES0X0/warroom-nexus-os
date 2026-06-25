@@ -42,7 +42,10 @@ CURRENT LIVE PRICES will be injected per request. Use them in your analysis.`;
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { command, prices, sessionName } = req.body ?? {};
+  const command = req.body?.command ?? req.body?.message;
+  const prices = req.body?.prices;
+  const sessionName = req.body?.sessionName;
+  const systemOverride: string | undefined = req.body?.system;
   if (!command) return res.status(400).json({ error: 'command required' });
 
   const groqKey = process.env.GROQ_API_KEY;
@@ -72,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: WARROOM_SYSTEM_PROMPT },
+          { role: 'system', content: systemOverride ?? WARROOM_SYSTEM_PROMPT },
           { role: 'user', content: userMessage },
         ],
         stream: true,
