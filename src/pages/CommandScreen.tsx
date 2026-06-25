@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores, useEXAScan } from "@/hooks/useEXAScores";
@@ -56,7 +57,7 @@ function ProvenanceBadge({ state }: { state: ProvenanceState }) {
   const s = PROVENANCE_STYLE[state];
   return (
     <span style={{
-      fontSize: "7px", fontWeight: "800", letterSpacing: "0.13em",
+      fontSize: "8px", fontWeight: "800", letterSpacing: "0.13em",
       padding: "1px 5px", borderRadius: "4px",
       color: s.color, background: s.bg, border: `1px solid ${s.color}28`,
       fontFamily: "monospace",
@@ -150,6 +151,7 @@ const CommandScreen = () => {
   const tick = usePriceTick(state.selectedAsset);
   const exa = useEXAScores(state.selectedAsset);
   const scan = useEXAScan(ALL_ASSETS);
+  const navigate = useNavigate();
 
   // Wire live price feed → global quote state (5s polling fallback)
   useEffect(() => {
@@ -681,6 +683,18 @@ const CommandScreen = () => {
                   </div>
                 ))}
               </div>
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => navigate("/journal")}
+                  className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider border transition-all"
+                  style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.08)" }}>
+                  ✓ SEND TO JOURNAL
+                </button>
+                <button onClick={() => navigate("/execution")}
+                  className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider border transition-all"
+                  style={{ color: "#38bdf8", borderColor: "rgba(56,189,248,0.25)", background: "rgba(56,189,248,0.06)" }}>
+                  → PAPER TRADING
+                </button>
+              </div>
             </div>
           )}
 
@@ -920,7 +934,7 @@ const CommandScreen = () => {
 
                 {/* Next action directive */}
                 <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center gap-2">
-                  <span className="text-[7px] uppercase tracking-[0.2em] text-white/20">Next</span>
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-white/20">Next</span>
                   <span className="text-[10px]" style={{
                     color: currentStep >= steps.length ? "#10b981" : "rgba(255,255,255,0.5)",
                   }}>
@@ -930,6 +944,44 @@ const CommandScreen = () => {
               </section>
             );
           })()}
+
+          {/* Draft Preview — auto-generated when Command authorises */}
+          {state.journalDraft && (
+            <section className="glass-card rounded-2xl p-4 border border-amber-500/15">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <div className="text-[8px] font-black px-1.5 py-0.5 rounded"
+                    style={{ color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                    DRAFT READY
+                  </div>
+                  <span className="text-[8px] text-white/30 font-mono">Auto-generated from Command · review in Journal</span>
+                </div>
+                <button onClick={() => navigate("/journal")}
+                  className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded border"
+                  style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)" }}>
+                  OPEN IN JOURNAL
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-[9px] font-mono">
+                {[
+                  ["Asset", state.journalDraft.asset],
+                  ["Direction", state.journalDraft.direction],
+                  ["Entry", state.journalDraft.entry],
+                  ["Stop", state.journalDraft.stop],
+                  ["TP1", state.journalDraft.tp1],
+                  ["R:R", state.journalDraft.rr ?? "—"],
+                  ["Lots", state.journalDraft.lots.toFixed(2)],
+                  ["Risk", `£${state.journalDraft.riskAmount.toFixed(0)}`],
+                ].map(([l, v]) => (
+                  <div key={l} className="card-surface p-2">
+                    <div className="text-[8px] text-white/25 uppercase">{l}</div>
+                    <div className="text-[9px] font-black text-white mt-0.5">{String(v)}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Trade Plan Inputs */}
           <section className="glass-card rounded-2xl p-4">

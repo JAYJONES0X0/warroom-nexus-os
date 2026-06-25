@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThreeScene, type PlanetStateInfo } from "@/components/ThreeScene";
+import MorningBrief from "@/components/MorningBrief";
 import { getSessionLabel } from "@/lib/warroomCommand";
 
 // COSMOS = module navigation layer
@@ -146,6 +147,9 @@ const Index = () => {
           Drag to rotate · Scroll to zoom · Click a planet to enter its module
         </div>
       </div>
+
+      {/* ─ Morning Brief panel ──────────────────────────────────────────────── */}
+      <MorningBrief />
     </div>
   );
 };

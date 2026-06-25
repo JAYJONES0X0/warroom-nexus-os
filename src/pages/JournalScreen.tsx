@@ -32,7 +32,7 @@ function loadEntries(): JournalEntry[] {
 const ASSETS = ["EUR/USD", "GBP/USD", "USD/JPY", "GBP/JPY", "AUD/USD", "NZD/USD", "XAU/USD", "BTC/USD", "NAS100", "SPX500", "DXY"];
 
 const JournalScreen = () => {
-  const { state } = useWarroom();
+  const { state, updateJournalDraft } = useWarroom();
   const [entries, setEntries] = useState<JournalEntry[]>(loadEntries);
   const [quickNote, setQuickNote] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -131,21 +131,30 @@ const JournalScreen = () => {
               </span>
               <span className="text-[9px] text-white/40 font-mono">from Command · {new Date(draft.timestamp).toISOString().slice(0, 16).replace("T", " ")}</span>
             </div>
-            <button onClick={() => {
-              setForm({
-                date: new Date().toISOString().slice(0, 10),
-                asset: draft.asset.includes("/") ? draft.asset : `${draft.asset.slice(0, 3)}/${draft.asset.slice(3)}`,
-                side: draft.direction === "LONG" ? "BUY" : "SELL",
-                resultR: "",
-                note: draft.notes || `Entry ${draft.entry} · Stop ${draft.stop} · TP1 ${draft.tp1}${draft.rr ? ` · R:R ${draft.rr}` : ""}`,
-                tags: `command,${draft.session.toLowerCase().includes("kill") ? "killzone" : draft.session.toLowerCase().includes("ny") ? "ny" : ""}`,
-              });
-              setShowForm(true);
-            }}
-              className="text-[8px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded border transition-all"
-              style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)" }}>
-              ACCEPT DRAFT
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => {
+                const rr = draft.rr?.split(":")[0] ?? "";
+                setForm({
+                  date: new Date().toISOString().slice(0, 10),
+                  asset: draft.asset.includes("/") ? draft.asset : `${draft.asset.slice(0, 3)}/${draft.asset.slice(3)}`,
+                  side: draft.direction === "LONG" ? "BUY" : "SELL",
+                  resultR: rr,
+                  note: draft.notes || `Entry ${draft.entry} · Stop ${draft.stop} · TP1 ${draft.tp1}${draft.rr ? ` · R:R ${draft.rr}` : ""}`,
+                  tags: `command,${draft.session.toLowerCase().includes("kill") ? "killzone" : draft.session.toLowerCase().includes("ny") ? "ny" : ""}`,
+                });
+                updateJournalDraft(null);
+                setShowForm(true);
+              }}
+                className="text-[8px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded border transition-all"
+                style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)" }}>
+                ACCEPT DRAFT
+              </button>
+              <button onClick={() => updateJournalDraft(null)}
+                className="text-[8px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded border transition-all"
+                style={{ color: "rgba(255,255,255,0.3)", borderColor: "rgba(255,255,255,0.08)", background: "transparent" }}>
+                DISCARD
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-4 gap-2 text-[10px] font-mono">
             {[

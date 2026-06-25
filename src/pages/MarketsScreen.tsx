@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { usePrices } from "@/hooks/usePrices";
 import { usePriceTick } from "@/hooks/usePriceTick";
 import { useEXAScores } from "@/hooks/useEXAScores";
@@ -93,6 +95,7 @@ const OrderBook = ({ mid, dec }: { mid: number; dec: number }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const MarketsScreen = () => {
+  const navigate = useNavigate();
   const { state, updateSetup, updateJournalDraft } = useWarroom();
   const { prices, source } = usePrices();
   const [selected, setSelected]  = useState("XAUUSD");
@@ -133,7 +136,7 @@ const MarketsScreen = () => {
           style={{ borderColor: "rgba(255,68,68,0.12)", background: "rgba(0,0,0,0.3)" }}>
           <div className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ background: "#ff4444", boxShadow: "0 0 8px #ff4444" }} />
           <span className="text-[11px] font-black tracking-[0.2em] text-red-400 mr-4">GLOBAL MARKETS</span>
-          <span className="text-[6px] font-mono tracking-[0.18em] px-1 py-0.5 rounded border mr-4"
+          <span className="text-[8px] font-mono tracking-[0.18em] px-1 py-0.5 rounded border mr-4"
             style={{ color: "#f59e0b", borderColor: "rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)" }}>
             VIEWER LIVE · TERMINAL BUILDING
           </span>
@@ -330,7 +333,7 @@ const MarketsScreen = () => {
               <div className="px-3 py-2 border-b border-white/[0.04] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">Order Book</span>
-                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                  <span className="text-[8px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
                     style={{ color: "#a855f7", borderColor: "rgba(168,85,247,0.35)", background: "rgba(168,85,247,0.1)" }}>
                     SIMULATED
                   </span>
@@ -347,7 +350,7 @@ const MarketsScreen = () => {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">EXA Signal</div>
-                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                  <span className="text-[8px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
                     style={{ color: "#8b5cf6", borderColor: "rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }}>
                     MODEL
                   </span>
@@ -486,7 +489,7 @@ const MarketsScreen = () => {
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/25">Broker Connection</span>
-                  <span className="text-[6px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
+                  <span className="text-[8px] font-mono tracking-[0.15em] px-1 py-0.5 rounded border"
                     style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.1)" }}>
                     NOT CONNECTED
                   </span>
@@ -511,27 +514,47 @@ const MarketsScreen = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-1.5 mb-2">
                   <button onClick={() => {
-                    updateSetup({ entry: livePrice ? livePrice.toFixed(asset.dec) : "" });
-                    window.location.href = "/";
+                    const dir = exa.bias === "BULLISH" ? "LONG" : exa.bias === "BEARISH" ? "SHORT" : "NEUTRAL";
+                    const stopDist = 0.0012 * (0.6 + exa.volatility / 100);
+                    const stop = livePrice ? (dir === "LONG" ? livePrice * (1 - stopDist) : livePrice * (1 + stopDist)) : 0;
+                    updateSetup({
+                      entry: livePrice ? livePrice.toFixed(asset.dec) : "",
+                      direction: dir as any,
+                      stop: livePrice ? stop.toFixed(asset.dec) : "",
+                    });
+                    navigate("/");
                   }}
                     className="text-[8px] font-black uppercase tracking-wider py-1.5 rounded border transition-all"
                     style={{ color: "#38bdf8", borderColor: "rgba(56,189,248,0.25)", background: "rgba(56,189,248,0.06)" }}>
                     → COMMAND
                   </button>
                   <button onClick={() => {
+                    if (state.journalDraft && !window.confirm("Overwrite existing draft?")) return;
+                    const dir = exa.bias === "BULLISH" ? "LONG" : exa.bias === "BEARISH" ? "SHORT" : "NEUTRAL";
+                    const stopDist = 0.0012 * (0.6 + exa.volatility / 100);
+                    const stop = livePrice ? (dir === "LONG" ? livePrice * (1 - stopDist) : livePrice * (1 + stopDist)) : 0;
+                    const lots = livePrice ? Math.max(0.01, Math.round((10000 / livePrice) * 100) / 100) : 0.01;
                     updateJournalDraft({
-                      asset: selected, direction: exa.bias === "BULLISH" ? "LONG" : exa.bias === "BEARISH" ? "SHORT" : "NEUTRAL",
-                      entry: livePrice ? livePrice.toFixed(asset.dec) : "", stop: "", tp1: "",
-                      lots: 0, riskAmount: 0, session: getSession().label, timeframe: tf,
-                      timestamp: Date.now(), notes: `From Markets: ${asset.label} at ${livePrice ? livePrice.toFixed(asset.dec) : "—"}`,
+                      asset: selected, direction: dir as any,
+                      entry: livePrice ? livePrice.toFixed(asset.dec) : "",
+                      stop: livePrice ? stop.toFixed(asset.dec) : "", tp1: "",
+                      lots, riskAmount: 0, session: getSession().label, timeframe: tf,
+                      timestamp: Date.now(),
+                      notes: `From Markets: ${asset.label} at ${livePrice ? livePrice.toFixed(asset.dec) : "—"}`,
                     });
+                    toast("Draft created", { description: `${asset.label} · ${dir} · ${lots.toFixed(2)} lots` });
                   }}
                     className="text-[8px] font-black uppercase tracking-wider py-1.5 rounded border transition-all"
                     style={{ color: "#10b981", borderColor: "rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.06)" }}>
                     → JOURNAL
                   </button>
+                  <button onClick={() => navigate("/execution")}
+                    className="text-[8px] font-black uppercase tracking-wider py-1.5 rounded border transition-all col-span-2"
+                    style={{ color: "#f59e0b", borderColor: "rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.06)" }}>
+                    → PAPER TRADING
+                  </button>
                 </div>
-                <div className="text-[7px] text-white/15 font-mono">
+                <div className="text-[8px] text-white/15 font-mono">
                   Sends current price + asset to Command setup or Journal draft.
                 </div>
               </div>
