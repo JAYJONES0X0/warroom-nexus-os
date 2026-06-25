@@ -45,7 +45,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const command = req.body?.command ?? req.body?.message;
   const prices = req.body?.prices;
   const sessionName = req.body?.sessionName;
-  const systemOverride: string | undefined = req.body?.system;
   if (!command) return res.status(400).json({ error: 'command required' });
 
   const groqKey = process.env.GROQ_API_KEY;
@@ -75,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: systemOverride ?? WARROOM_SYSTEM_PROMPT },
+          { role: 'system', content: WARROOM_SYSTEM_PROMPT },
           { role: 'user', content: userMessage },
         ],
         stream: true,
