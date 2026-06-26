@@ -177,28 +177,29 @@ All colors MUST be HSL.
   .glass-card {
     position: relative;
     overflow: hidden;
-    background: hsl(228 30% 13% / 0.8);
-    border: 1px solid hsl(33 50% 65% / 0.12);
+    background: linear-gradient(160deg, hsl(228 35% 16% / 0.95) 0%, hsl(228 30% 11% / 0.95) 100%);
+    border: 1px solid hsl(33 50% 65% / 0.22);
     border-radius: 1rem;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     box-shadow:
-      0 4px 24px -4px rgba(0, 0, 0, 0.6),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+      0 4px 32px -4px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 0 0 1px hsl(33 50% 65% / 0.04);
+    transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
   }
 
-  /* Top-left arc — glass reflection */
+  /* Top-left arc — glass reflection, bright enough to see statically */
   .glass-card::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 30%, transparent 60%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.04) 25%, transparent 55%);
     pointer-events: none;
     z-index: 0;
   }
 
-  /* Top edge gold shimmer line */
+  /* Top edge gold shimmer line — visible at rest */
   .glass-card::after {
     content: '';
     position: absolute;
@@ -206,7 +207,7 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, hsl(33 50% 65% / 0.25) 35%, hsl(33 50% 65% / 0.12) 70%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, hsl(33 50% 65% / 0.5) 30%, hsl(33 50% 65% / 0.25) 65%, transparent 100%);
     pointer-events: none;
     z-index: 0;
   }
@@ -217,24 +218,31 @@ All colors MUST be HSL.
   }
 
   .glass-card:hover {
-    border-color: hsl(33 50% 65% / 0.3);
+    border-color: hsl(33 50% 65% / 0.42);
+    background: linear-gradient(160deg, hsl(228 35% 18% / 0.98) 0%, hsl(228 30% 13% / 0.98) 100%);
     box-shadow:
-      0 8px 32px -4px rgba(0, 0, 0, 0.7),
-      inset 3px 0 0 hsl(33 50% 65% / 0.35),
-      inset 0 0 40px hsl(33 50% 65% / 0.06),
-      0 0 0 1px hsl(33 50% 65% / 0.08);
+      0 12px 40px -4px rgba(0, 0, 0, 0.8),
+      inset 3px 0 0 hsl(33 50% 65% / 0.45),
+      inset 0 0 60px hsl(33 50% 65% / 0.08),
+      0 0 0 1px hsl(33 50% 65% / 0.12),
+      0 0 40px -10px hsl(33 50% 65% / 0.2);
   }
 
   /* Gold — primary accent, key intel panels */
   .glass-card-gold {
-    background: linear-gradient(135deg, hsl(33 50% 65% / 0.1) 0%, hsl(33 50% 65% / 0.03) 40%, hsl(228 30% 13% / 0.85) 70%);
-    border-color: hsl(33 50% 65% / 0.22);
+    background: linear-gradient(135deg, hsl(33 50% 65% / 0.16) 0%, hsl(33 50% 65% / 0.06) 35%, hsl(228 30% 13% / 0.92) 70%);
+    border-color: hsl(33 50% 65% / 0.35);
   }
   .glass-card-gold::after {
-    background: linear-gradient(90deg, transparent 10%, hsl(33 50% 65% / 0.38) 40%, hsl(33 50% 65% / 0.18) 70%, transparent 90%);
+    background: linear-gradient(90deg, transparent 5%, hsl(33 50% 65% / 0.6) 35%, hsl(33 50% 65% / 0.3) 65%, transparent 90%);
   }
   .glass-card-gold:hover {
-    border-color: hsl(33 50% 65% / 0.45);
+    border-color: hsl(33 50% 65% / 0.6);
+    box-shadow:
+      0 12px 40px -4px rgba(0, 0, 0, 0.8),
+      inset 3px 0 0 hsl(33 50% 65% / 0.55),
+      inset 0 0 60px hsl(33 50% 65% / 0.1),
+      0 0 50px -8px hsl(33 50% 65% / 0.3);
   }
 
   /* Green — AUTHORIZE, active, confirmed, live */
