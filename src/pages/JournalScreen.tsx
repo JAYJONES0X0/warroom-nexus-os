@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { PlanetPageLayout } from "@/components/PlanetPageLayout";
 import { useWarroom } from "@/context/WarroomStateContext";
-import journalTexture from "@/assets/textures/real_earth_daymap.jpg";
 
 interface JournalEntry {
   id: string;
@@ -112,15 +110,51 @@ const JournalScreen = () => {
     input.click();
   }, []);
 
+  // Right panel data
+  const assetStats = ASSETS.map(a => {
+    const ae = entries.filter(e => e.asset === a);
+    const w = ae.filter(e => e.resultR > 0).length;
+    const total = ae.filter(e => e.resultR !== 0).length;
+    const r = ae.reduce((s, e) => s + e.resultR, 0);
+    return { asset: a, total, wins: w, r };
+  }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
+
+  const tagStats = Array.from(
+    entries.flatMap(e => e.tags).reduce((m, t) => {
+      m.set(t, (m.get(t) ?? 0) + 1); return m;
+    }, new Map<string, number>())
+  ).sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  const rCurve = entries
+    .filter(e => e.resultR !== 0)
+    .slice()
+    .reverse()
+    .reduce<{ label: string; cumR: number }[]>((acc, e, i) => {
+      const prev = acc[i - 1]?.cumR ?? 0;
+      acc.push({ label: e.asset, cumR: +(prev + e.resultR).toFixed(2) });
+      return acc;
+    }, []);
+  const maxAbs = Math.max(...rCurve.map(p => Math.abs(p.cumR)), 0.1);
+
   return (
-    <PlanetPageLayout
-      texture={journalTexture}
-      glowColor="#10b981"
-      bgColor="#030a18"
-      screenName="TRADE JOURNAL"
-      screenDesc="Session logs · R tracking · Pattern reinforcement · Psychological edge"
+    <div
+      className="fixed overflow-hidden"
+      style={{ left: 52, top: 44, right: 0, bottom: 0, background: "#030a18", fontFamily: "monospace" }}
     >
-      {/* ── Draft from Command ── */}
+      {/* Two-column layout */}
+      <div className="flex h-full">
+
+        {/* ── LEFT: scrollable entries ── */}
+        <div className="flex-1 overflow-y-auto px-8 py-6" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(16,185,129,0.2) transparent" }}>
+
+          {/* Header */}
+          <div className="mb-6 pb-5 border-b border-white/[0.06]">
+            <div className="text-[9px] uppercase tracking-[0.35em] text-emerald-400/60 font-mono mb-1">WARROOM NEXUS</div>
+            <h1 className="text-3xl font-black text-white tracking-wider">TRADE JOURNAL</h1>
+            <p className="text-[11px] text-white/30 font-mono mt-1">Session logs · R tracking · Pattern reinforcement · Psychological edge</p>
+          </div>
+
+          {/* ── Draft from Command ── */}
       {draft && (
         <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
           <div className="flex items-center justify-between mb-3">
@@ -336,18 +370,119 @@ const JournalScreen = () => {
         )}
       </div>
 
-      {/* Quick Note */}
-      <div className="card-surface p-5">
-        <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-3">QUICK NOTE</div>
-        <textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)}
-          placeholder="Log a thought, observation, or post-session reflection..."
-          className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white font-mono focus:outline-none focus:border-white/25 resize-none h-24" />
-        <button onClick={saveQuickNote}
-          className="mt-3 px-5 py-2 bg-white/[0.04] border border-white/[0.08] text-white/60 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.08] transition-all">
-          SAVE NOTE
-        </button>
-      </div>
-    </PlanetPageLayout>
+          {/* Quick Note */}
+          <div className="card-surface p-5 mb-6">
+            <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-3">QUICK NOTE</div>
+            <textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)}
+              placeholder="Log a thought, observation, or post-session reflection..."
+              className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white font-mono focus:outline-none focus:border-white/25 resize-none h-24" />
+            <button onClick={saveQuickNote}
+              className="mt-3 px-5 py-2 bg-white/[0.04] border border-white/[0.08] text-white/60 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.08] transition-all">
+              SAVE NOTE
+            </button>
+          </div>
+
+        </div>{/* end left scroll */}
+
+        {/* ── RIGHT: stats panel ── */}
+        <div className="w-[340px] shrink-0 border-l border-white/[0.05] overflow-y-auto px-5 py-6 space-y-5" style={{ scrollbarWidth: "none" }}>
+
+          {/* R-Curve */}
+          <div>
+            <div className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-mono mb-3">R-CURVE</div>
+            {rCurve.length === 0 ? (
+              <div className="text-[10px] text-white/20 font-mono py-4 text-center">No closed trades yet.</div>
+            ) : (
+              <div className="space-y-1">
+                {rCurve.map((p, i) => {
+                  const pct = Math.abs(p.cumR) / maxAbs * 100;
+                  const isUp = p.cumR >= 0;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="text-[8px] text-white/20 font-mono w-6 shrink-0">{i + 1}</div>
+                      <div className="flex-1 h-4 bg-white/[0.03] rounded-sm overflow-hidden">
+                        <div className="h-full rounded-sm transition-all"
+                          style={{ width: `${pct}%`, background: isUp ? "#10b981" : "#ef4444" }} />
+                      </div>
+                      <div className="text-[9px] font-black w-12 text-right shrink-0"
+                        style={{ color: isUp ? "#10b981" : "#ef4444" }}>
+                        {p.cumR > 0 ? "+" : ""}{p.cumR}R
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Asset breakdown */}
+          {assetStats.length > 0 && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-mono mb-3">BY ASSET</div>
+              <div className="space-y-2">
+                {assetStats.map(s => {
+                  const wr = s.total ? Math.round(s.wins / s.total * 100) : 0;
+                  return (
+                    <div key={s.asset} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ background: wr >= 60 ? "#10b981" : wr >= 40 ? "#f59e0b" : "#ef4444" }} />
+                        <span className="text-[10px] font-black text-white/70">{s.asset}</span>
+                        <span className="text-[8px] text-white/25">{s.total}T</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono" style={{ color: s.r >= 0 ? "#10b981" : "#ef4444" }}>
+                          {s.r > 0 ? "+" : ""}{s.r.toFixed(1)}R
+                        </span>
+                        <span className="text-[8px] text-white/30">{wr}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tag frequency */}
+          {tagStats.length > 0 && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-mono mb-3">TOP TAGS</div>
+              <div className="flex flex-wrap gap-1.5">
+                {tagStats.map(([tag, count]) => (
+                  <span key={tag} className="text-[9px] font-mono px-2 py-0.5 rounded border"
+                    style={{ color: "rgba(255,255,255,0.5)", borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                    {tag} <span className="text-white/25">{count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Session split */}
+          {totalTrades > 0 && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-mono mb-3">SUMMARY</div>
+              <div className="space-y-2">
+                {[
+                  ["Win Rate", `${winRate.toFixed(0)}%`, winRate >= 60 ? "#10b981" : "#f59e0b"],
+                  ["Total R", `${totalR >= 0 ? "+" : ""}${totalR.toFixed(1)}R`, totalR >= 0 ? "#10b981" : "#ef4444"],
+                  ["Avg R/Trade", `${avgR >= 0 ? "+" : ""}${avgR.toFixed(2)}R`, avgR >= 0 ? "#10b981" : "#ef4444"],
+                  ["Best", `+${maxWin.toFixed(1)}R`, "#10b981"],
+                  ["Worst", `${maxLoss.toFixed(1)}R`, "#ef4444"],
+                ].map(([l, v, c]) => (
+                  <div key={l} className="flex justify-between items-baseline">
+                    <span className="text-[9px] text-white/30 font-mono">{l}</span>
+                    <span className="text-[11px] font-black" style={{ color: c }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>{/* end right panel */}
+
+      </div>{/* end two-col */}
+    </div>
   );
 };
 
