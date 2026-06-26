@@ -84,7 +84,7 @@ const SettingsScreen = () => {
         </div>
 
         {/* Theme */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">THEME</div>
           <div className="flex gap-3">
             {(["dark", "copper"] as Theme[]).map(t => (
@@ -101,7 +101,7 @@ const SettingsScreen = () => {
         </div>
 
         {/* Risk rules */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">RISK RULES</div>
           <div className="grid grid-cols-2 gap-4">
             {([["Risk Per Trade (%)", "risk", "Max 2% recommended"], ["Max Daily Drawdown (%)", "maxDD", "Walk away at this level"]] as const).map(([l, k, hint]) => (
@@ -116,7 +116,7 @@ const SettingsScreen = () => {
         </div>
 
         {/* Focus sessions */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">FOCUS SESSIONS</div>
           <select value={prefs.session} onChange={(e) => set("session", e.target.value)}
             className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-500/40">
@@ -125,14 +125,14 @@ const SettingsScreen = () => {
         </div>
 
         {/* Notifications */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">NOTIFICATIONS</div>
           <div className="space-y-3">
             {[
               ["Browser Alerts", "notifications", "Show browser notifications when setup is authorized"],
               ["Sound Alerts", "soundAlerts", "Play a sound on high-confluence alerts"],
             ].map(([l, k, hint]) => (
-              <label key={k} className="flex items-center justify-between card-surface px-4 py-3 cursor-pointer">
+              <label key={k} className="flex items-center justify-between glass-card px-4 py-3 cursor-pointer">
                 <div>
                   <div className="text-sm font-black text-white">{l}</div>
                   <div className="text-[10px] text-white/30 font-mono">{hint}</div>
@@ -146,9 +146,9 @@ const SettingsScreen = () => {
         </div>
 
         {/* AI engine */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">AI ENGINE</div>
-          <div className="flex items-center justify-between card-surface px-4 py-3">
+          <div className="flex items-center justify-between glass-card px-4 py-3">
             <div>
               <div className="text-sm font-black text-white">Groq · Llama 3.3 70B</div>
               <div className="text-[10px] text-white/30 font-mono">Powers ARCHON + the EXA terminal</div>
@@ -159,7 +159,7 @@ const SettingsScreen = () => {
         </div>
 
         {/* Data export */}
-        <div className="card-surface p-6">
+        <div className="glass-card p-6">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-4">DATA</div>
           <button onClick={exportData}
             className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-[0.15em] border transition-all hover:-translate-y-0.5"

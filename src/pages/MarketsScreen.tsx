@@ -366,7 +366,7 @@ const MarketsScreen = () => {
                 })()}
               </div>
 
-              <div className="flex items-center gap-2 mb-2 card-surface p-2">
+              <div className="flex items-center gap-2 mb-2 glass-card p-2">
                 {(() => {
                   const vc = exa.verdict === "AUTHORIZED" ? "#10b981" : exa.verdict === "DELAY" ? "#f59e0b" : "#ef4444";
                   return (
@@ -411,7 +411,7 @@ const MarketsScreen = () => {
                       ["Stop",   livePrice && dir ? fmt(livePrice * (1 - dir * stopDist)) : "—", "text-red-400/70"],
                       ["Target", livePrice && dir ? fmt(livePrice * (1 + dir * tgtDist )) : "—", "text-emerald-400/70"],
                     ].map(([l, v, c]) => (
-                      <div key={l} className="text-center card-surface p-1.5">
+                      <div key={l} className="text-center glass-card p-1.5">
                         <div className="text-white/20 mb-0.5 font-mono uppercase">{l}</div>
                         <div className={`font-black tabular-nums ${c}`}>{v}</div>
                       </div>
@@ -465,7 +465,7 @@ const MarketsScreen = () => {
 
               {/* Real swing levels — PDH/PWH resistance (red above) · PDL/PWL support (green below) */}
               {lv && (
-                <div className="card-surface mb-2 p-2">
+                <div className="glass-card mb-2 p-2">
                   <div className="text-[8px] uppercase tracking-[0.2em] text-white/30 mb-1.5">Key Levels · swing liquidity</div>
                   <div className="flex flex-wrap gap-1">
                     {([["PWH", lv.pwh], ["PDH", lv.pdh], ["PDL", lv.pdl], ["PWL", lv.pwl]] as const).map(([lab, val]) => {
@@ -495,12 +495,12 @@ const MarketsScreen = () => {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between card-surface p-2">
+              <div className="flex items-center justify-between glass-card p-2">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-red-500/50" style={{ boxShadow: '0 0 4px rgba(239,68,68,0.3)' }} />
                     <span className="text-[9px] text-white/40 font-mono">MT4/MT5/cTrader</span>
                   </div>
-                  <span className="text-[9px] text-white/20 font-mono card-surface px-1.5 py-0.5">NOT CONNECTED</span>
+                  <span className="text-[9px] text-white/20 font-mono border border-white/[0.06] rounded px-1.5 py-0.5">NOT CONNECTED</span>
                 </div>
                 <div className="text-[8px] text-white/15 font-mono mt-1">
                   Chart + signals are live. Execute on your broker platform.

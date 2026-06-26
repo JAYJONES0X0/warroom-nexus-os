@@ -1012,7 +1012,7 @@ const CommandScreen = () => {
                   ["Lots", state.journalDraft.lots.toFixed(2)],
                   ["Risk", `£${state.journalDraft.riskAmount.toFixed(0)}`],
                 ].map(([l, v]) => (
-                  <div key={l} className="card-surface p-2">
+                  <div key={l} className="glass-card p-2">
                     <div className="text-[8px] text-white/25 uppercase">{l}</div>
                     <div className="text-[9px] font-black text-white mt-0.5">{String(v)}</div>
                   </div>

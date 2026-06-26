@@ -53,7 +53,7 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
 
   return (
     <div className="space-y-4">
-      <div className="p-3 rounded-xl border card-surface" style={{ background: "rgba(170,68,255,0.06)", borderColor: "rgba(170,68,255,0.2)" }}>
+      <div className="glass-card glass-card-purple p-3">
         <div className="text-[10px] text-white/40 font-mono">ARCHON — autonomous override protocol powered by Groq + EXA 4-LOCKS</div>
       </div>
 
@@ -70,7 +70,7 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 p-4 card-surface">
+        <div className="flex items-center gap-3 p-4 glass-card">
           <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
           <span className="text-xs text-white/40 font-mono">ARCHON analyzing {selectedPair} with live market data...</span>
         </div>
@@ -78,7 +78,7 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
 
       {signal && (
         <div className="space-y-3">
-          <div className="p-5 rounded-xl border card-surface" style={{ background: `${signalColor}08`, borderColor: `${signalColor}30` }}>
+          <div className="glass-card p-5" style={{ background: `linear-gradient(135deg, ${signalColor}0a 0%, hsl(228 30% 11% / 0.95) 70%)`, borderColor: `${signalColor}35` }}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <span className="text-xl font-black" style={{ color: signalColor }}>{signal.signal}</span>
@@ -102,7 +102,7 @@ const ArchonTab = ({ prices }: { prices: Record<string, any> }) => {
             {signal.entry && (
               <div className="grid grid-cols-4 gap-2 mb-3">
                 {[["Entry", signal.entry], ["Stop Loss", signal.sl], ["Take Profit", signal.tp], ["R:R", signal.rr ? `1:${signal.rr}` : "—"]].map(([l, v]: any) => (
-                  <div key={l} className="card-surface rounded-lg p-2 text-center">
+                  <div key={l} className="glass-card p-2 text-center">
                     <div className="text-[9px] text-white/30 uppercase font-mono mb-0.5">{l}</div>
                     <div className="text-xs font-black text-white">{v || "—"}</div>
                   </div>
@@ -158,8 +158,8 @@ const IntelligenceScreen = () => {
           const bc = scores.bias === "BULLISH" ? "#10b981" : scores.bias === "BEARISH" ? "#ef4444" : "rgba(255,255,255,0.35)";
           return (
             <div key={pair} onClick={() => setSelectedPair(pair)}
-              className="p-4 rounded-xl cursor-pointer transition-all border card-surface"
-              style={{ background: isSel ? "rgba(170,68,255,0.07)" : "rgba(255,255,255,0.02)", borderColor: isSel ? "rgba(170,68,255,0.35)" : "rgba(255,255,255,0.05)" }}>
+              className={`p-4 cursor-pointer transition-all glass-card${isSel ? " glass-card-purple" : ""}`}
+              style={isSel ? { borderColor: "rgba(170,68,255,0.45)" } : undefined}>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-white uppercase tracking-wide">{label(pair)}</span>
                 <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ const IntelligenceScreen = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 card-surface w-fit mb-4">
+      <div className="flex gap-1 p-1 glass-card w-fit mb-4">
         {TABS.map((t) => (
           <button
             key={t}
@@ -196,7 +196,7 @@ const IntelligenceScreen = () => {
       </div>
 
       {/* Tab content */}
-      <div className="card-surface p-5 mb-6 min-h-[200px]">
+      <div className="glass-card p-5 mb-6 min-h-[200px]">
         {tab === "Patterns" && sel && (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -232,7 +232,7 @@ const IntelligenceScreen = () => {
               const flat = scores.bias === "NEUTRAL";
               const col = flat ? "rgba(255,255,255,0.4)" : up ? "#10b981" : "#ef4444";
               return (
-                <div key={pair} className="p-4 card-surface">
+                <div key={pair} className="p-4 glass-card">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <span className="font-black text-white">{label(pair)}</span>
@@ -265,7 +265,7 @@ const IntelligenceScreen = () => {
                 ["Assets Bearish", Math.round((bears / n) * 100), `${bears}/${ranked.length} pairs`],
               ];
               return cards.map(([l, v, note]) => (
-                <div key={l} className="p-4 card-surface">
+                <div key={l} className="p-4 glass-card">
                   <div className="text-[10px] text-white/35 uppercase font-mono mb-2">{l}</div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">

@@ -201,7 +201,7 @@ const JournalScreen = () => {
               ["Session", draft.session],
               ["Timeframe", draft.timeframe],
             ].map(([l, v]) => (
-              <div key={l} className="card-surface p-2">
+              <div key={l} className="glass-card p-2">
                 <div className="text-[8px] text-white/25 uppercase tracking-wider">{l}</div>
                 <div className="text-[10px] font-black text-white mt-0.5">{v}</div>
               </div>
@@ -218,7 +218,7 @@ const JournalScreen = () => {
           ["Win Rate", totalTrades ? `${winRate.toFixed(0)}%` : "--", winRate >= 60 ? "#10b981" : "#f59e0b"],
           ["Avg R", totalTrades ? `${avgR >= 0 ? "+" : ""}${avgR.toFixed(2)}R` : "--", avgR >= 0 ? "#10b981" : "#ef4444"],
         ].map(([l, v, c]) => (
-          <div key={l} className="card-surface p-4 text-center">
+          <div key={l} className="glass-card p-4 text-center">
             <div className="text-[10px] text-white/30 uppercase font-mono mb-1">{l}</div>
             <div className="text-xl font-black" style={{ color: c }}>{String(v)}</div>
           </div>
@@ -269,7 +269,7 @@ const JournalScreen = () => {
 
       {/* Entry Form */}
       {showForm && (
-        <div className="card-surface p-5 mb-4">
+        <div className="glass-card p-5 mb-4">
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-3">{editing ? "EDIT ENTRY" : "NEW ENTRY"}</div>
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div>
@@ -327,7 +327,7 @@ const JournalScreen = () => {
         {filteredEntries.map((e) => {
           const isNote = e.asset === "NOTE";
           return (
-            <div key={e.id} className="card-surface p-5 transition-all hover:border-white/[0.10]">
+            <div key={e.id} className="glass-card p-5 transition-all hover:border-white/[0.10]">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-white/25 font-mono">{e.date}</span>
@@ -371,7 +371,7 @@ const JournalScreen = () => {
       </div>
 
           {/* Quick Note */}
-          <div className="card-surface p-5 mb-6">
+          <div className="glass-card p-5 mb-6">
             <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-3">QUICK NOTE</div>
             <textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)}
               placeholder="Log a thought, observation, or post-session reflection..."

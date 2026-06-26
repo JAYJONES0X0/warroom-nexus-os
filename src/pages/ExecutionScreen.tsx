@@ -101,17 +101,17 @@ function PaperTradingPanel({ prices }: { prices: Record<string, { price: number 
   }, []);
 
   return (
-    <div className="card-surface p-6 mt-6">
+    <div className="glass-card p-6 mt-6">
       <div className="flex items-center justify-between mb-5">
         <div className="text-xs text-white/40 uppercase tracking-[0.2em] font-mono">PAPER TRADING</div>
         <div className="flex items-center gap-3">
-          <div className="card-surface rounded-lg px-3 py-1">
+          <div className="glass-card rounded-lg px-3 py-1">
             <span className="text-[10px] text-white/30 font-mono">P&L </span>
             <span className={`text-xs font-black ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
             </span>
           </div>
-          <div className="card-surface rounded-lg px-3 py-1">
+          <div className="glass-card rounded-lg px-3 py-1">
             <span className="text-[10px] text-white/30 font-mono">WR </span>
             <span className="text-xs font-black text-white">{winRate}%</span>
           </div>
@@ -135,7 +135,7 @@ function PaperTradingPanel({ prices }: { prices: Record<string, { price: number 
               const pnlPct = live ? ((live - t.entry) / t.entry) * 100 * dir : 0;
               const dec = t.pair.includes("JPY") ? 3 : t.pair === "XAUUSD" ? 2 : t.pair === "NAS100" || t.pair === "BTCUSD" ? 0 : 4;
               return (
-                <div key={t.id} className="flex items-center gap-3 card-surface p-2.5">
+                <div key={t.id} className="flex items-center gap-3 glass-card p-2.5">
                   <div className="flex items-center gap-2 min-w-[120px]">
                     <span className="text-xs font-black text-white/80">{t.pair}</span>
                     <span className={`text-[9px] font-black uppercase ${t.direction === "LONG" ? "text-emerald-400" : "text-red-400"}`}>
@@ -182,7 +182,7 @@ function PaperTradingPanel({ prices }: { prices: Record<string, { price: number 
               const live = prices[t.pair]?.price;
               const dec = t.pair.includes("JPY") ? 3 : t.pair === "XAUUSD" ? 2 : t.pair === "NAS100" || t.pair === "BTCUSD" ? 0 : 4;
               return (
-                <div key={t.id} className="flex items-center gap-2 card-surface rounded-lg p-2">
+                <div key={t.id} className="flex items-center gap-2 glass-card rounded-lg p-2">
                   <span className="text-[9px] font-black text-white/50 min-w-[50px]">{t.pair}</span>
                   <span className={`text-[9px] font-black ${(t.pnl ?? 0) >= 0 ? "text-emerald-400/60" : "text-red-400/60"}`}>
                     {(t.pnl ?? 0) >= 0 ? "+" : ""}${(t.pnl ?? 0).toFixed(2)}
@@ -198,7 +198,7 @@ function PaperTradingPanel({ prices }: { prices: Record<string, { price: number 
 
       {/* New trade form */}
       {showForm ? (
-        <div className="card-surface p-4 space-y-3">
+        <div className="glass-card p-4 space-y-3">
           <div className="text-[10px] text-white/30 font-mono uppercase tracking-wider mb-2">NEW PAPER TRADE</div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -277,7 +277,7 @@ const EXALocksGate = ({ liveLocks }: { liveLocks: boolean[] }) => {
   const vc      = verdict === "DEPLOY" ? "#10b981" : verdict === "MONITOR" ? "#f59e0b" : "#ef4444";
 
   return (
-    <div className="card-surface p-6 mt-6">
+    <div className="glass-card p-6 mt-6">
       <div className="flex items-center justify-between mb-5">
         <div className="text-xs text-white/40 uppercase tracking-[0.2em] font-mono">EXA 4-LOCKS GATE</div>
         <div className="flex items-center gap-3">
@@ -310,7 +310,7 @@ const EXALocksGate = ({ liveLocks }: { liveLocks: boolean[] }) => {
         ))}
       </div>
       {count === 4 && (
-        <div className="mt-4 p-4 card-surface-accent-green">
+        <div className="mt-4 p-4 glass-card-accent-green">
           <div className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">✓ ALL LOCKS CONFIRMED — SETUP AUTHORIZED</div>
           <div className="text-[11px] text-white/40 font-mono">
             Take this signal to MT4/MT5/cTrader. Enter at structure, stop below swept level, target drawn liquidity.
@@ -351,7 +351,7 @@ const SignalPanel = ({ pair }: { pair: string }) => {
   }
 
   return (
-    <div className="card-surface p-6">
+    <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="text-xs text-white/30 uppercase tracking-[0.2em] font-mono mb-1">LIVE SIGNAL — {pair}</div>
@@ -377,7 +377,7 @@ const SignalPanel = ({ pair }: { pair: string }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 card-surface mb-4 p-4">
+      <div className="grid grid-cols-3 gap-3 glass-card mb-4 p-4">
         {([
           ["Entry Zone",  entry,  "text-white/80",      entrySub],
           ["Stop Level",  stop,   "text-red-400/80",    stopSub],
@@ -391,7 +391,7 @@ const SignalPanel = ({ pair }: { pair: string }) => {
         ))}
       </div>
 
-      <div className="text-[10px] text-white/25 font-mono text-center card-surface rounded-lg py-2">
+      <div className="text-[10px] text-white/25 font-mono text-center glass-card rounded-lg py-2">
         Levels from real prior-day/week swings — confirm on your chart before executing on MT4/MT5
       </div>
     </div>
@@ -429,7 +429,7 @@ const ExecutionScreen = () => {
       <SignalPanel pair={selectedPair} />
 
       {/* EXA multi-factor gauges */}
-      <div className="card-surface p-6 mt-6">
+      <div className="glass-card p-6 mt-6">
         <div className="flex items-center justify-between mb-6">
           <div className="text-xs text-white/40 uppercase tracking-[0.2em] font-mono">EXA MULTI-FACTOR ANALYSIS</div>
           <div className="text-[10px] text-white/20 font-mono">5-dimension confluence model</div>
@@ -465,7 +465,7 @@ const ExecutionScreen = () => {
       <PaperTradingPanel prices={prices} />
 
       {/* Disclaimer */}
-      <div className="mt-6 p-4 card-surface">
+      <div className="mt-6 p-4 glass-card">
         <div className="text-[10px] font-mono text-white/20 text-center leading-relaxed">
           WARROOM NEXUS is an intelligence layer. All signals are for informational purposes.<br />
           Execute trades through your own broker platform (MT4/MT5/cTrader). Paper trades are simulated.
